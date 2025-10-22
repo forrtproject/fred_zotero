@@ -1,0 +1,92 @@
+# Zotero Plugin .gitignore
+
+# Built XPI files
+*.xpi
+
+# Backup files
+*.backup
+*.old
+*.bak
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Node.js (if you add build tools later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build artifacts
+build/
+dist/
+*.log
+
+# Test files
+test/
+tests/
+*.test.js
+
+# Environment files
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Debug files
+debug.log
+
+# Python (if you have any Python scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+
+# IDE specific
+*.iml
+.classpath
+
+# Zip files (except XPI which is already listed)
+*.zip
+
+# Old structure (if converting)
+chrome-OLD-DELETE-LATER/
+*.manifest-OLD

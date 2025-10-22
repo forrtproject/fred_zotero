@@ -176,6 +176,7 @@ var ReplicationCheckerPlugin = {
 
     for (let rep of replications) {
       html += '<li>';
+      html += '<i>This is an automatically generated note. Do not make changes!</i><br>';
       html += `<strong>${this._escapeHtml(rep.title_r)}</strong><br>`;
       html += `${this._escapeHtml(rep.author_r)} (${this._escapeHtml(rep.year_r)})<br>`;
       html += `<em>${this._escapeHtml(rep.journal_r)}</em><br>`;

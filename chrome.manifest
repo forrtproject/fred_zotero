@@ -1,4 +1,0 @@
-# Registers the overlay for menu integration
-content replication-checker chrome/content/
-overlay chrome://zotero/content/zoteroPane.xhtml chrome://replication-checker/content/overlay.xhtml
-locale replication-checker en-US locale/en-US/

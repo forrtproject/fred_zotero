@@ -14,7 +14,7 @@ var ReplicationCheckerPlugin = {
 
     try {
       // Initialize data source with API (replaced CSV with API)
-      Zotero.debug("ReplicationChecker: Initializing data source with API");
+      Zotero.debug("Initializing data source with API");
 
       this.dataSource = new APIDataSource();
       await this.dataSource.initialize();
@@ -22,9 +22,9 @@ var ReplicationCheckerPlugin = {
       // Create matcher with the API data source
       this.matcher = new BatchMatcher(this.dataSource);
 
-      Zotero.debug("ReplicationChecker: Initialized with API data source");
+      Zotero.debug("ReplicationChecker initialized with API data source");
     } catch (error) {
-      Zotero.logError("ReplicationChecker: Failed to initialize data source: " + error);
+      Zotero.logError("Failed to initialize data source: " + error);
       throw error;
     }
   },
@@ -34,8 +34,6 @@ var ReplicationCheckerPlugin = {
    */
   async checkEntireLibrary() {
     try {
-      Zotero.debug("ReplicationChecker: Starting library check");
-      
       // Show progress
       const progressWin = new Zotero.ProgressWindow();
       progressWin.changeHeadline("Checking for Replications");
@@ -83,8 +81,7 @@ var ReplicationCheckerPlugin = {
       // Show detailed alert
       this.showResultsAlert(results, dois.length, libraryItems.length);
     } catch (error) {
-      Zotero.logError("ReplicationChecker: Error checking library: " + error);
-      Zotero.logError(error.stack);
+      Zotero.logError("Error checking library: " + error);
       const win = Zotero.getMainWindow();
       if (win) {
         win.alert("Error", "Error checking for replications: " + error.message);
@@ -97,13 +94,9 @@ var ReplicationCheckerPlugin = {
    */
   async checkSelectedItems() {
     try {
-      Zotero.debug("ReplicationChecker: Starting selected items check");
-      
       // Get selected DOIs
       const selectedItems = ZoteroIntegration.getSelectedDOIs();
       const dois = selectedItems.map(item => item.doi);
-
-      Zotero.debug(`ReplicationChecker: Found ${dois.length} selected items with DOIs`);
 
       if (dois.length === 0) {
         const win = Zotero.getMainWindow();
@@ -114,32 +107,19 @@ var ReplicationCheckerPlugin = {
       }
 
       // Check for replications
-      Zotero.debug("ReplicationChecker: Checking for replications...");
       const results = await this.matcher.checkBatch(dois);
-      
-      Zotero.debug(`ReplicationChecker: Got ${results.length} results`);
 
       // Process results
       for (let result of results) {
-        Zotero.debug(`ReplicationChecker: Processing result for DOI ${result.doi}, replications: ${result.replications.length}`);
-        
         if (result.replications.length > 0) {
           const libraryItem = selectedItems.find(item =>
             item.doi.toLowerCase() === result.doi.toLowerCase()
           );
 
           if (libraryItem) {
-            Zotero.debug(`ReplicationChecker: Found library item ${libraryItem.itemID} for DOI ${result.doi}`);
-            
             const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
-            Zotero.debug(`ReplicationChecker: Item ${libraryItem.itemID} already has tag: ${hasTag}`);
-            
             if (!hasTag) {
-              Zotero.debug(`ReplicationChecker: Adding tag and note to item ${libraryItem.itemID}`);
               await this.notifyUser(libraryItem.itemID, result.replications);
-              Zotero.debug(`ReplicationChecker: Successfully added tag and note to item ${libraryItem.itemID}`);
-            } else {
-              Zotero.debug(`ReplicationChecker: Item ${libraryItem.itemID} already tagged, skipping`);
             }
           }
         }
@@ -148,8 +128,7 @@ var ReplicationCheckerPlugin = {
       // Show detailed alert
       this.showResultsAlert(results, dois.length, selectedItems.length, true);
     } catch (error) {
-      Zotero.logError("ReplicationChecker: Error checking selected items: " + error);
-      Zotero.logError(error.stack);
+      Zotero.logError("Error checking selected items: " + error);
       const win = Zotero.getMainWindow();
       if (win) {
         win.alert("Error", "Error checking for replications: " + error.message);
@@ -163,25 +142,12 @@ var ReplicationCheckerPlugin = {
    * @param {Array} replications
    */
   async notifyUser(itemID, replications) {
-    try {
-      Zotero.debug(`ReplicationChecker: notifyUser called for item ${itemID} with ${replications.length} replications`);
-      
-      // Add tag
-      Zotero.debug(`ReplicationChecker: Adding tag to item ${itemID}`);
-      await ZoteroIntegration.addTag(itemID, "Has Replication");
-      Zotero.debug(`ReplicationChecker: Tag added successfully`);
+    // Add tag
+    await ZoteroIntegration.addTag(itemID, "Has Replication");
 
-      // Create note with replication details
-      Zotero.debug(`ReplicationChecker: Creating note for item ${itemID}`);
-      const note = this.createReplicationNote(replications);
-      await ZoteroIntegration.addNote(itemID, note);
-      Zotero.debug(`ReplicationChecker: Note added successfully`);
-      
-    } catch (error) {
-      Zotero.logError(`ReplicationChecker: Error in notifyUser for item ${itemID}: ` + error);
-      Zotero.logError(error.stack);
-      throw error;
-    }
+    // Create note with replication details
+    const note = this.createReplicationNote(replications);
+    await ZoteroIntegration.addNote(itemID, note);
   },
 
   /**
@@ -259,7 +225,7 @@ var ReplicationCheckerPlugin = {
       message += "\nNo replications found.";
     }
 
-    message += "\nTags and notes have been added to items with replications.";
+    message += "\nSelect individual items and use 'Check for Replications' for details.";
 
     win.alert(message);
   }

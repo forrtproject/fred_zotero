@@ -144,6 +144,21 @@ var ReplicationCheckerPlugin = {
   async notifyUser(itemID, replications) {
     // Add tag
     await ZoteroIntegration.addTag(itemID, "Has Replication");
+    // Add another tag with Outcome 
+    const allowedOutcomes = {
+      successful: "Replication: Successful",
+      failure: "Replication: Failure",
+      mixed: "Replication: Mixed"
+    };
+    const uniqueOutcomes = new Set(
+      replications
+        .map(r => r.outcome ? r.outcome.toLowerCase() : null)
+        .filter(o => o && Object.keys(allowedOutcomes).includes(o))
+    );
+    
+    for (let outcome of uniqueOutcomes) {
+    await ZoteroIntegration.addTag(itemID, allowedOutcomes[outcome]);
+  }
 
     // Create note with replication details
     const note = this.createReplicationNote(replications);
@@ -167,7 +182,7 @@ var ReplicationCheckerPlugin = {
       html += `DOI: <a href="https://doi.org/${this._escapeHtml(rep.doi_r)}">${this._escapeHtml(rep.doi_r)}</a><br>`;
 
       if (rep.outcome) {
-        html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
+        html += `Author Reported Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
       }
 
       // Conditional linking of report only if DOI is present and url_r is https link

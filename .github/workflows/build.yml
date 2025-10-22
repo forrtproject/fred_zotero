@@ -1,0 +1,57 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - '**'  # Build on push to any branch
+  pull_request:
+    branches:
+      - '**'  # Build on PR to any branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Build XPI
+        run: |
+          echo "Building XPI from addon/ folder..."
+          cd addon
+          zip -r ../replication-checker.xpi \
+            bootstrap.js \
+            manifest.json \
+            content/ \
+            locale/ \
+            data/ \
+            -x "*.DS_Store" \
+            -x "*/__pycache__/*"
+          cd ..
+          
+          echo "Build complete!"
+      
+      - name: Verify build
+        run: |
+          echo "XPI created successfully!"
+          ls -lh replication-checker.xpi
+          
+          echo ""
+          echo "XPI contents (first 30 files):"
+          unzip -l replication-checker.xpi | head -35
+          
+          echo ""
+          echo "Critical files check:"
+          unzip -l replication-checker.xpi | grep -E "(bootstrap.js|manifest.json|index.js)"
+          
+          echo ""
+          echo "XPI size:"
+          du -h replication-checker.xpi
+      
+      - name: Upload XPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: replication-checker-xpi
+          path: replication-checker.xpi
+          retention-days: 30

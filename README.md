@@ -77,6 +77,10 @@ When a replication is found:
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
 
+#### What does replication outcome mean?
+
+The plug in automatically creates a tag and an entry in the note based on the FReD Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Succesful", "Replication: Failed" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FReD-data/blob/main/cos_report.html).
+
 ## Data Source
 
 Currently uses a live API endpoint (https://ouj1xoiypb.execute-api.eu-central-1.amazonaws.com/v1/prefix-lookup) to query the FORRT Replication Database (FReD) for up-to-date replication studies. The API returns candidates based on 3-character MD5 hash prefixes, ensuring privacy by not requiring full DOIs.

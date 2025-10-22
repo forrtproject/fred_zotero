@@ -2,9 +2,11 @@ name: Build and Test
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches:
+      - '**'  # Build on push to any branch
   pull_request:
-    branches: [ main, master ]
+    branches:
+      - '**'  # Build on PR to any branch
 
 jobs:
   build:

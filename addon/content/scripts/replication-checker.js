@@ -168,8 +168,13 @@ var ReplicationCheckerPlugin = {
       if (rep.outcome) {
         html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong>`;
       }
-      html += '</li>';
-    }
+
+      if (rep.doi_r && rep.doi_r.trim().toLowerCase() !== 'na' && rep.url_r && typeof rep.url_r === 'string' && rep.url_r.trim().toLowerCase() !== 'na' &&
+      rep.url_r.trim().startsWith('https')) {
+            html += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
+          }
+          html += '</li>';
+            }
 
     html += '</ul>';
     html += `

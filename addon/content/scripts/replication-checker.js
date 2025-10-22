@@ -143,6 +143,22 @@ var ReplicationCheckerPlugin = {
       const hasTag = await ZoteroIntegration.hasReplicationTag(itemID);
       if (!hasTag) {
         await ZoteroIntegration.addTag(itemID, "Has Replication");
+        // Add specific outcome tags (only if not already tagged)
+        const allowedOutcomes = {
+          successful: "Replication: Successful",
+          failure: "Replication: Failure",
+          mixed: "Replication: Mixed"
+        };
+
+        const uniqueOutcomes = new Set(
+          replications
+            .map(r => r.outcome ? r.outcome.toLowerCase() : null)
+            .filter(o => o && Object.keys(allowedOutcomes).includes(o))
+        );
+
+        for (let outcome of uniqueOutcomes) {
+          await ZoteroIntegration.addTag(itemID, allowedOutcomes[outcome]);
+        }
       }
 
       // Generate note content
@@ -187,14 +203,14 @@ var ReplicationCheckerPlugin = {
     html += '<ul>';
     for (let rep of replications) {
       html += '<li>';
+      html += '<i>This is an automatically generated note. Do not make changes!</i><br>';
       html += `<strong>${this._escapeHtml(rep.title_r)}</strong><br>`;
       html += `${this._escapeHtml(this._parseAuthors(rep.author_r))} (${this._escapeHtml(rep.year_r)})<br>`;
       html += `<em>${this._escapeHtml(rep.journal_r)}</em><br>`;
       html += `DOI: <a href="https://doi.org/${this._escapeHtml(rep.doi_r)}">${this._escapeHtml(rep.doi_r)}</a><br>`;
 
       if (rep.outcome) {
-        html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong>`;
-        html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
+        html += `Author Reported Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
       }
 
       // Conditional linking of report only if DOI is present and url_r is https link
@@ -203,7 +219,6 @@ var ReplicationCheckerPlugin = {
         rep.url_r.trim().startsWith('https')) {
         html += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
       }
-
       html += '</li>';
     }
 

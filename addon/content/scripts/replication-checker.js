@@ -8,6 +8,7 @@ var ReplicationCheckerPlugin = {
   dataSource: null,
   matcher: null,
   rootURI: null,
+  notifierID: null,
 
   async init(rootURI) {
     this.rootURI = rootURI;
@@ -22,10 +23,157 @@ var ReplicationCheckerPlugin = {
       // Create matcher with the API data source
       this.matcher = new BatchMatcher(this.dataSource);
 
-      Zotero.debug("ReplicationChecker initialized with API data source");
+      // Register notifier to watch for new items
+      this.registerNotifier();
+
+      Zotero.debug("ReplicationChecker initialized with API data source and notifier");
     } catch (error) {
       Zotero.logError("Failed to initialize data source: " + error);
       throw error;
+    }
+  },
+
+  /**
+   * Register Zotero notifier to watch for new items
+   */
+  registerNotifier() {
+    const notifierCallback = {
+      notify: async (event, type, ids, extraData) => {
+        if (event === 'add' && type === 'item') {
+          // Small delay to ensure item is fully saved
+          setTimeout(async () => {
+            await this.checkNewItems(ids);
+          }, 2000);
+        }
+      }
+    };
+
+    this.notifierID = Zotero.Notifier.registerObserver(notifierCallback, ['item']);
+    Zotero.debug("ReplicationChecker: Notifier registered for new items");
+  },
+
+  /**
+   * Unregister notifier on shutdown
+   */
+  unregisterNotifier() {
+    if (this.notifierID) {
+      Zotero.Notifier.unregisterObserver(this.notifierID);
+      Zotero.debug("ReplicationChecker: Notifier unregistered");
+    }
+  },
+
+  /**
+   * Check newly added items for replications
+   * @param {Array} itemIDs - Array of newly added item IDs
+   */
+  async checkNewItems(itemIDs) {
+    try {
+      const itemsToCheck = [];
+
+      for (let itemID of itemIDs) {
+        const item = await Zotero.Items.getAsync(itemID);
+        
+        // Skip attachments, notes, and items already tagged
+        if (!item || item.isAttachment() || item.isNote()) {
+          continue;
+        }
+
+        const doi = item.getField('DOI');
+        if (doi) {
+          // Check if already has replication tag
+          const hasTag = await ZoteroIntegration.hasReplicationTag(itemID);
+          if (!hasTag) {
+            itemsToCheck.push({ itemID, doi });
+          }
+        }
+      }
+
+      if (itemsToCheck.length === 0) {
+        return;
+      }
+
+      Zotero.debug(`ReplicationChecker: Checking ${itemsToCheck.length} new item(s) for replications`);
+
+      // Check for replications
+      const dois = itemsToCheck.map(item => item.doi);
+      const results = await this.matcher.checkBatch(dois);
+
+      // Process results and show dialog for items with replications
+      for (let result of results) {
+        if (result.replications.length > 0) {
+          const itemData = itemsToCheck.find(item =>
+            item.doi.toLowerCase() === result.doi.toLowerCase()
+          );
+
+          if (itemData) {
+            await this.showReplicationDialog(itemData.itemID, result.replications);
+          }
+        }
+      }
+    } catch (error) {
+      Zotero.logError("Error checking new items: " + error);
+    }
+  },
+
+  /**
+   * Show dialog asking user if they want to add replication information
+   * @param {number} itemID
+   * @param {Array} replications
+   */
+  async showReplicationDialog(itemID, replications) {
+    try {
+      const win = Zotero.getMainWindow();
+      if (!win) return;
+
+      const item = await Zotero.Items.getAsync(itemID);
+      const itemTitle = item.getField('title');
+
+      // Build message
+      let message = `Replication studies found for:\n"${itemTitle}"\n\n`;
+      message += `Found ${replications.length} replication(s):\n\n`;
+
+      for (let i = 0; i < Math.min(replications.length, 3); i++) {
+        const rep = replications[i];
+        message += `${i + 1}. ${rep.title_r}\n`;
+        message += `   ${rep.author_r} (${rep.year_r})\n`;
+        message += `   Outcome: ${rep.outcome || 'Not specified'}\n\n`;
+      }
+
+      if (replications.length > 3) {
+        message += `...and ${replications.length - 3} more replication(s)\n\n`;
+      }
+
+      message += `Would you like to:\n`;
+      message += `• Add "Has Replication" tag\n`;
+      message += `• Add detailed note with replication information`;
+
+      // Show confirmation dialog
+      const ps = Components.classes["@mozilla.org/embedcomp/prompt-service;1"]
+        .getService(Components.interfaces.nsIPromptService);
+
+      const result = ps.confirm(
+        win,
+        "Replication Studies Found",
+        message
+      );
+
+      if (result) {
+        // User clicked "OK" - add tag and note
+        await this.notifyUser(itemID, replications);
+        
+        // Show success message
+        const progressWin = new Zotero.ProgressWindow();
+        progressWin.changeHeadline("Replication Information Added");
+        progressWin.show();
+        progressWin.addLines([`Added replication information to "${itemTitle}"`]);
+        progressWin.startCloseTimer(3000);
+        
+        Zotero.debug(`ReplicationChecker: User accepted replication info for item ${itemID}`);
+      } else {
+        Zotero.debug(`ReplicationChecker: User declined replication info for item ${itemID}`);
+      }
+    } catch (error) {
+      Zotero.logError("Error showing replication dialog: " + error);
     }
   },
 
@@ -236,5 +384,12 @@ var ReplicationCheckerPlugin = {
     message += "\nSelect individual items and use 'Check for Replications' for details.";
 
     win.alert(message);
+  },
+
+  /**
+   * Shutdown function - cleanup
+   */
+  shutdown() {
+    this.unregisterNotifier();
   }
 };

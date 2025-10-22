@@ -149,9 +149,15 @@
   /**
    * Cleanup function called on shutdown
    */
+  const originalShutdown = ReplicationCheckerPlugin.shutdown;
   ReplicationCheckerPlugin.shutdown = function() {
     try {
       ReplicationChecker.log("Cleaning up UI...");
+      
+      // Call original shutdown (unregister notifier)
+      if (originalShutdown && typeof originalShutdown === 'function') {
+        originalShutdown.call(ReplicationCheckerPlugin);
+      }
       
       // Remove menu items
       if (ReplicationChecker.menuItems) {

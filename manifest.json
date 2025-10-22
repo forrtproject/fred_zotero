@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Zotero Replication Checker",
   "version": "0.1.0",
-  "description": "Privacy-first replication discovery",
+  "description": "Privacy-first plugin to discover replications from FReD. Requires Zotero 7.0 or higher.",
   "author": "FORRT / Rohan Tondlekar",
   "homepage_url": "https://github.com/forrtproject/fred_zotero",
   "icons": {

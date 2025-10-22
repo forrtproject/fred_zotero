@@ -130,4 +130,4 @@ Enable Zotero debug output:
 We welcome all forms of contribution! [Get in touch](https://forrt.org/about/get-involved/) if you want to get involved.
 
 ## Feedback
-Do you have feedback for us? Open an issue here if you encounter bugs or documentation issues. You can also get in touch anonymously with us about the Replication Checker Plug [here]{https://tinyurl.com/y5evebv9}.
+Do you have feedback for us? Open an issue here if you encounter bugs or documentation issues. You can also contact us anonymously about the Replication Checker Plug [here](https://tinyurl.com/y5evebv9).

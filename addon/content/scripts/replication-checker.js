@@ -165,16 +165,20 @@ var ReplicationCheckerPlugin = {
       html += `${this._escapeHtml(rep.author_r)} (${this._escapeHtml(rep.year_r)})<br>`;
       html += `<em>${this._escapeHtml(rep.journal_r)}</em><br>`;
       html += `DOI: <a href="https://doi.org/${this._escapeHtml(rep.doi_r)}">${this._escapeHtml(rep.doi_r)}</a><br>`;
+
       if (rep.outcome) {
-        html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong>`;
+        html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
       }
 
-      if (rep.doi_r && rep.doi_r.trim().toLowerCase() !== 'na' && rep.url_r && typeof rep.url_r === 'string' && rep.url_r.trim().toLowerCase() !== 'na' &&
-      rep.url_r.trim().startsWith('https')) {
-            html += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
-          }
-          html += '</li>';
-            }
+      // Conditional linking of report only if DOI is present and url_r is https link
+      if (rep.doi_r && rep.doi_r.trim().toLowerCase() !== 'na' &&
+        rep.url_r && typeof rep.url_r === 'string' && rep.url_r.trim().toLowerCase() !== 'na' &&
+        rep.url_r.trim().startsWith('https')) {
+        html += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
+      }
+
+      html += '</li>';
+    }
 
     html += '</ul>';
     html += `

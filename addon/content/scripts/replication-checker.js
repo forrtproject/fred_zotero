@@ -215,7 +215,7 @@ var ReplicationCheckerPlugin = {
           for (let libraryItem of matchingItems) {
             if (!processedItems.has(libraryItem.itemID)) {
               try {
-                await this.notifyUser(libraryItem.itemID, result.replications);
+                await this.notifyUserAndAddReplications(libraryItem.itemID, result.replications);
                 processedItems.add(libraryItem.itemID);
                 matchCount++;
               } catch (error) {
@@ -267,7 +267,7 @@ var ReplicationCheckerPlugin = {
               const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
               if (!hasTag || result.replications.length > 0) { // Ensure note is added if new replications are found
                 try {
-                  await this.notifyUser(libraryItem.itemID, result.replications);
+                  await this.notifyUserAndAddReplications(libraryItem.itemID, result.replications);
                   processedItems.add(libraryItem.itemID);
                 } catch (error) {
                   Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
@@ -340,7 +340,7 @@ var ReplicationCheckerPlugin = {
               const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
               if (!hasTag || result.replications.length > 0) { // Ensure note is added if new replications are found
                 try {
-                  await this.notifyUser(libraryItem.itemID, result.replications);
+                  await this.notifyUserAndAddReplications(libraryItem.itemID, result.replications);
                   processedItems.add(libraryItem.itemID);
                   matchCount++;
                 } catch (error) {
@@ -512,7 +512,7 @@ async addReplicationsToFolder(itemID, replications) {
     // Get or create "Replication folder" collection
     const libraryID = item.libraryID;
     let collections = Zotero.Collections.getByLibrary(libraryID, true);
-    let replicationCollection = collections.find(c => c.name === "Replication folder");
+    let replicationCollection = collections.find(c => c.name === "Replication folder" && !c.parentID);
 
     if (!replicationCollection) {
       replicationCollection = new Zotero.Collection();

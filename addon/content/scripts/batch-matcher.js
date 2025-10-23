@@ -26,8 +26,15 @@ class BatchMatcher {
         Zotero.debug(`Generated ${doiToPrefixMap.size} unique DOIs with prefixes`);
 
         const uniquePrefixes = [...new Set(doiToPrefixMap.values())];
+        let candidates = [];
+        const batchSize = 100;
         const startTime = Date.now(); 
-        const candidates = await this.dataSource.queryByPrefixes(uniquePrefixes);
+        for (let i = 0; i < uniquePrefixes.length; i += batchSize) {
+            const batchPrefixes = uniquePrefixes.slice(i, i + batchSize);
+            Zotero.debug(`Querying batch ${Math.floor(i / batchSize) + 1} with ${batchPrefixes.length} prefixes`);
+            const batchCandidates = await this.dataSource.queryByPrefixes(batchPrefixes);
+            candidates = candidates.concat(batchCandidates);
+        }
         const queryTime = Date.now() - startTime;
 
         Zotero.debug(`Received ${candidates.length} candidates from data source in ${queryTime}ms`);
@@ -51,15 +58,16 @@ class BatchMatcher {
         for (const doi of ourDois) {
             const ourPrefix = doiToPrefixMap.get(doi);
 
-            // Find candidates with matching prefix
+            // Find candidates with matching prefix AND exact doi_o match
             const matchingCandidates = candidates.filter(candidate =>
-                candidate.matchedPrefix === ourPrefix
+                candidate.matchedPrefix === ourPrefix &&
+                this._normalizeDoi(candidate.doi_o) === doi
             );
 
-            // Assign all matching candidates as replications for this DOI
+            // Assign matching candidates as replications for this DOI
             const replications = matchingCandidates.map(candidate => ({
                 ...candidate,
-                doi_o: doi // Set doi_o to the original DOI
+                doi_o: doi // Override doi_o to the original DOI (though it should match)
             }));
 
             results.push({
@@ -77,14 +85,14 @@ class BatchMatcher {
     _normalizeDoi(doi) {
         if (!doi) return null;
 
-        let normalized = doi.trim();
+        let normalized = doi.trim().toLowerCase();
 
         // Remove common URL prefixes
         normalized = normalized.replace(/^https?:\/\/(dx\.)?doi\.org\//i, '');
 
         normalized = normalized.replace(/^doi:\s*/i, '');
+        normalized = normalized.replace(/\/+/g, '/'); // Collapse multiple slashes to single
         normalized = normalized.trim();
-        normalized = normalized.toLowerCase();
 
         if (!normalized.startsWith('10.')) {
             return null;

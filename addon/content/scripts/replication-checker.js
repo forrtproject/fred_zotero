@@ -149,7 +149,7 @@ var ReplicationCheckerPlugin = {
       const result = ps.confirmEx(win, "Replication Found", message, buttonFlags, null, null, null, null, {});
 
       if (result === 0) { // Yes
-        await this.notifyUser(itemID, replications);
+        await this.notifyUserAndAddReplications(itemID, replications);
       }
     } catch (error) {
       Zotero.logError("Error showing replication dialog: " + error);
@@ -185,7 +185,7 @@ var ReplicationCheckerPlugin = {
           for (let selectedItem of matchingItems) {
             if (!processedItems.has(selectedItem.itemID)) {
               try {
-                await this.notifyUser(selectedItem.itemID, result.replications);
+                await this.notifyUserAndAddReplications(selectedItem.itemID, result.replications);
                 matchCount++;
               } catch (error) {
                 Zotero.logError(`Error processing item ${selectedItem.itemID}: ${error.message}`);
@@ -244,7 +244,7 @@ var ReplicationCheckerPlugin = {
           for (let collectionItem of matchingItems) {
             if (!processedItems.has(collectionItem.itemID)) {
               try {
-                await this.notifyUser(collectionItem.itemID, result.replications);
+                await this.notifyUserAndAddReplications(collectionItem.itemID, result.replications);
                 matchCount++;
               } catch (error) {
                 Zotero.logError(`Error processing item ${collectionItem.itemID}: ${error.message}`);
@@ -298,7 +298,7 @@ var ReplicationCheckerPlugin = {
           for (let libraryItem of matchingItems) {
             if (!processedItems.has(libraryItem.itemID)) {
               try {
-                await this.notifyUser(libraryItem.itemID, result.replications);
+                await this.notifyUserAndAddReplications(libraryItem.itemID, result.replications);
                 matchCount++;
               } catch (error) {
                 Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
@@ -403,14 +403,14 @@ async notifyUser(itemID, replications) {
         const doi_r = (rep.doi_r || '').trim();
         if (doi_r && !existingDOIs.has(doi_r)) {
           const newLiHTML = this._createReplicationLi(rep);
-          ul.insertAdjacentHTML('beforeend', newLiHTML);  // Add to end of <ul>
+          ul.insertAdjacentHTML('beforeend', newLiHTML);
           existingDOIs.add(doi_r);
           added = true;
         }
       });
 
       if (added) {
-        const newHTML = doc.body.innerHTML;  // Serialize back (preserves user content after <ul>)
+        const newHTML = doc.body.innerHTML;
         existingNote.setNote(newHTML);
         await existingNote.saveTx();
       }
@@ -420,9 +420,54 @@ async notifyUser(itemID, replications) {
       await ZoteroIntegration.addNote(itemID, noteHTML);
     }
 
-    // New: Automatically add replications to "Replication folder" collection
-    const libraryID = item.libraryID; // Use same library as original item (personal or group)
-    let collections = Zotero.Collections.getByLibrary(libraryID, true); // true for including subcollections, but we want top-level
+  } catch (error) {
+    Zotero.logError(`Failed to notify user for item ${itemID}: ${error.message}`);
+    throw error;
+  }
+},
+
+/**
+ * Notify user and add replications to folder (wrapper function)
+ * Combines notifyUser and addReplicationsToFolder calls
+ * @param {number} itemID
+ * @param {Array} replications
+ */
+async notifyUserAndAddReplications(itemID, replications) {
+  try {
+    // Step 1: Add tags and notes to the original item
+    await this.notifyUser(itemID, replications);
+    
+    // Step 2: Add replications to the Replication folder
+    await this.addReplicationsToFolder(itemID, replications);
+  } catch (error) {
+    Zotero.logError(`Error in notifyUserAndAddReplications for item ${itemID}: ${error.message}`);
+    throw error;
+  }
+},
+
+/**
+ * Add replications to "Replication folder" collection
+ * @param {number} itemID - The original item ID (used to get library)
+ * @param {Array} replications - Array of replication objects
+ */
+async addReplicationsToFolder(itemID, replications) {
+  try {
+    const item = await Zotero.Items.getAsync(itemID);
+
+    // Deduplicate replications by doi_r
+    const seen = new Set();
+    const uniqueReplications = replications.filter(rep => {
+      const doi_r = (rep.doi_r || '').trim();
+      if (doi_r && !seen.has(doi_r)) {
+        seen.add(doi_r);
+        return true;
+      }
+      return false;
+    });
+
+    // Get or create "Replication folder" collection
+    const libraryID = item.libraryID;
+    let collections = Zotero.Collections.getByLibrary(libraryID, true);
     let replicationCollection = collections.find(c => c.name === "Replication folder");
 
     if (!replicationCollection) {
@@ -439,7 +484,7 @@ async notifyUser(itemID, replications) {
         const doi_r = (rep.doi_r || '').trim();
         if (!doi_r || !doi_r.startsWith('10.')) {
           Zotero.debug(`Skipping invalid or missing DOI for replication: ${doi_r}`);
-          continue; // Skip if no valid DOI
+          continue;
         }
 
         // Check for duplicate by DOI in the library
@@ -472,11 +517,9 @@ async notifyUser(itemID, replications) {
           let authors = [];
           if (rep.author_r) {
             try {
-              // author_r comes as a JSON string, need to parse it
               if (typeof rep.author_r === 'string') {
                 authors = JSON.parse(rep.author_r);
               } else if (Array.isArray(rep.author_r)) {
-                // Already an array (shouldn't happen but handle it)
                 authors = rep.author_r;
               }
             } catch (e) {
@@ -514,11 +557,10 @@ async notifyUser(itemID, replications) {
     });
 
   } catch (error) {
-    Zotero.logError(`Failed to notify user for item ${itemID}: ${error.message}`);
-    throw error; // Re-throw for caller handling
+    Zotero.logError(`Failed to add replications to folder for item ${itemID}: ${error.message}`);
+    throw error;
   }
 },
-
   /**
    * Parse authors into formatted string
    */

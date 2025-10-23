@@ -67,57 +67,57 @@ var ReplicationCheckerPlugin = {
    * @param {Array} itemIDs - Array of newly added item IDs
    */
   async checkNewItems(itemIDs) {
-  try {
-    const itemsToCheck = [];
+    try {
+      const itemsToCheck = [];
 
-    for (let itemID of itemIDs) {
-      const item = await Zotero.Items.getAsync(itemID);
-      
-      // Skip attachments, notes, and items already tagged
-      if (!item || item.isAttachment() || item.isNote()) {
-        continue;
-      }
+      for (let itemID of itemIDs) {
+        const item = await Zotero.Items.getAsync(itemID);
+        
+        // Skip attachments, notes, and items already tagged
+        if (!item || item.isAttachment() || item.isNote()) {
+          continue;
+        }
 
-      let doi = item.getField('DOI');
-      if (!doi) {
-          const extra = item.getField('extra');
-          if (extra) {
-              const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
-              if (doiMatch) {
-                  doi = doiMatch[1].trim();
-              }
-          }
-      }
-      if (doi) {
-          const normalizedDoi = new BatchMatcher(null)._normalizeDoi(doi); 
-          if (normalizedDoi) {
-              itemsToCheck.push({ itemID, doi: normalizedDoi });
-          }
-      }
-    }
-
-    if (itemsToCheck.length === 0) {
-      return;
-    }
-
-    Zotero.debug(`ReplicationChecker: Checking ${itemsToCheck.length} new item(s) for replications`);
-
-    // Check for replications
-    const dois = itemsToCheck.map(item => item.doi);
-    const results = await this.matcher.checkBatch(dois);
-
-    // Process results and show dialog for items with replications
-    for (let result of results) {
-      if (result.replications.length > 0) {
-        const itemData = itemsToCheck.find(item =>
-          item.doi.toLowerCase() === result.doi.toLowerCase()
-        );
-
-        if (itemData) {
-          await this.showReplicationDialog(itemData.itemID, result.replications);
+        let doi = item.getField('DOI');
+        if (!doi) {
+            const extra = item.getField('extra');
+            if (extra) {
+                const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
+                if (doiMatch) {
+                    doi = doiMatch[1].trim();
+                }
+            }
+        }
+        if (doi) {
+            const normalizedDoi = new BatchMatcher(null)._normalizeDoi(doi); 
+            if (normalizedDoi) {
+                itemsToCheck.push({ itemID, doi: normalizedDoi });
+            }
         }
       }
-    }
+
+      if (itemsToCheck.length === 0) {
+        return;
+      }
+
+      Zotero.debug(`ReplicationChecker: Checking ${itemsToCheck.length} new item(s) for replications`);
+
+      // Check for replications
+      const dois = itemsToCheck.map(item => item.doi);
+      const results = await this.matcher.checkBatch(dois);
+
+      // Process results and show dialog for items with replications
+      for (let result of results) {
+        if (result.replications.length > 0) {
+          const itemData = itemsToCheck.find(item =>
+            item.doi.toLowerCase() === result.doi.toLowerCase()
+          );
+
+          if (itemData) {
+            await this.showReplicationDialog(itemData.itemID, result.replications);
+          }
+        }
+      }
     } catch (error) {
       Zotero.logError("Error checking new items: " + error);
     }
@@ -469,7 +469,6 @@ async notifyUser(itemID, replications) {
           Zotero.debug(`Skipping invalid or missing DOI for replication: ${doi_r}`);
           continue; // Skip if no valid DOI
         }
-      }
 
         // Check for duplicate by DOI in the library
         const search = new Zotero.Search();

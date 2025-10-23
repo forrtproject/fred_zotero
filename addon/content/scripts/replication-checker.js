@@ -464,66 +464,6 @@ async notifyUser(itemID, replications) {
       const noteHTML = this.createReplicationNote(uniqueReplications);
       await ZoteroIntegration.addNote(itemID, noteHTML);
     }
-      // New: Automatically add replications to "Replication folder" collection
-      const libraryID = item.libraryID; // Use same library as original item (personal or group)
-      let collections = Zotero.Collections.getByLibrary(libraryID, true); // true for including subcollections, but we want top-level
-      let replicationCollection = collections.find(c => c.name === "Replication folder" && !c.hasParent());
-
-      if (!replicationCollection) {
-        replicationCollection = new Zotero.Collection();
-        replicationCollection.libraryID = libraryID;
-        replicationCollection.name = "Replication folder";
-        await replicationCollection.saveTx();
-        Zotero.debug(`Created new "Replication folder" collection in library ${libraryID}`);
-      }
-
-      for (let rep of uniqueReplications) {
-        const doi_r = (rep.doi_r || '').trim();
-        if (!doi_r || !doi_r.startsWith('10.')) {
-          Zotero.debug(`Skipping invalid or missing DOI for replication: ${doi_r}`);
-          continue; // Skip if no valid DOI
-        }
-
-        // Check for duplicate by DOI in the library
-        const search = new Zotero.Search();
-        search.libraryID = libraryID;
-        search.addCondition('DOI', 'is', doi_r);
-        const existingIDs = await search.search();
-        if (existingIDs.length > 0) {
-          Zotero.debug(`Skipping duplicate replication item with DOI: ${doi_r}`);
-          continue;
-        }
-
-        // Create new journal article item
-        const newItem = new Zotero.Item('journalArticle');
-        newItem.libraryID = libraryID;
-        newItem.setField('title', rep.title_r || 'Untitled Replication');
-        newItem.setField('publicationTitle', rep.journal_r || '');
-        newItem.setField('volume', rep.volume_r || '');
-        newItem.setField('issue', rep.issue_r || '');
-        newItem.setField('pages', rep.pages_r || '');
-        newItem.setField('date', rep.year_r ? rep.year_r.toString() : '');
-        newItem.setField('DOI', doi_r);
-
-        // Add authors
-        if (rep.author_r && Array.isArray(rep.author_r)) {
-          for (let author of rep.author_r) {
-            newItem.addCreator({
-              creatorType: 'author',
-              firstName: author.given || '',
-              lastName: author.family || ''
-            });
-          }
-        }
-
-        // Save the new item
-        const newItemID = await newItem.saveTx();
-        Zotero.debug(`Added new replication item with ID ${newItemID} for DOI ${doi_r}`);
-
-        // Add to collection
-        replicationCollection.addItem(newItemID);
-        await replicationCollection.saveTx();
-      }
   } catch (error) {
     Zotero.logError(`Failed to notify user for item ${itemID}: ${error.message}`);
     throw error;

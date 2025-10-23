@@ -356,17 +356,6 @@ var ReplicationCheckerPlugin = {
     }
   },
 
-  /**
-   * Notify user about replications found
-   * @param {number} itemID
-   * @param {Array} replications
-   */
-/**
- * Notify user about replications found
- * @param {number} itemID
- * @param {Array} replications
- */
-
 /**
  * Notify user about replications found
  * @param {number} itemID

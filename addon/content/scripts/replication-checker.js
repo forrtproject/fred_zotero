@@ -228,7 +228,7 @@ var ReplicationCheckerPlugin = {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found replications for ${matchCount} items`]);
+      progressWin.addLines([`Found replications`]);
       progressWin.startCloseTimer(3000);
     } catch (error) {
       Zotero.logError("Error checking library: " + error);
@@ -354,7 +354,7 @@ var ReplicationCheckerPlugin = {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found replications for ${matchCount} items`]);
+      progressWin.addLines([`Found replications`]);
       progressWin.startCloseTimer(3000);
 
       // Show simplified alert

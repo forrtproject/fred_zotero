@@ -43,17 +43,17 @@ Then install the generated replication-checker.xpi
 
 ## Usage
 
-### Check Entire Library
+### Check Entire Library or Group Libraries
 
 1. Go to **Tools → Check Library for Replications**
 2. A progress window will show the scan status
 3. Items with replications will be tagged and annotated
 
-This may take some time depending on the size of the library. While the plugin is scanning the library the Check Selected Items option won't work.
+This may take some time depending on the size of the library. While the plugin is scanning the library, the `Check Selected Items` option won't work.
 
-### Check Selected Items
+### Check Selected Items or Collections
 
-1. Select one or more items in your library
+1. Select one or more items in your library or collections
 2. Right-click → **Check for Replications**
 3. Selected items will be checked and tagged if replications are found
 

@@ -193,6 +193,7 @@ var ReplicationCheckerPlugin = {
       progressWin.addLines(["Scanning selected items..."]);
 
       const selectedItems = ZoteroIntegration.getSelectedDOIs();
+      const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
       const uniqueDois = [...new Set(selectedItems.map(item => item.doi.toLowerCase()))].map(doi => selectedItems.find(item => item.doi.toLowerCase() === doi).doi);
 
       progressWin.addLines([`Found ${selectedItems.length} items with DOIs (${uniqueDois.length} unique)`]);

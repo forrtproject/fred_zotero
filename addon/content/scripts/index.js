@@ -93,6 +93,22 @@
         ReplicationChecker.menuItems.push(menuitem);
         ReplicationChecker.log("Context menu item added (disabled)");
       }
+
+      // Add to collection context menu (disabled initially)
+      const collectionMenu = win.document.getElementById('zotero-collectionmenu');
+      if (collectionMenu) {
+        const menuitem = win.document.createXULElement('menuitem');
+        menuitem.id = 'replication-checker-collection-menu';
+        menuitem.setAttribute('label', 'Check for Replications (Initializing...)');
+        menuitem.setAttribute('disabled', 'true');
+        menuitem.addEventListener('command', () => {
+          ReplicationCheckerPlugin.checkSelectedCollection();
+        });
+        collectionMenu.appendChild(menuitem);
+        ReplicationChecker.menuItems = ReplicationChecker.menuItems || [];
+        ReplicationChecker.menuItems.push(menuitem);
+        ReplicationChecker.log("Collection menu item added (disabled)");
+      }
       
       ReplicationChecker.log("UI setup complete (menus disabled)");
       
@@ -137,6 +153,14 @@
         contextMenuItem.setAttribute('label', 'Check for Replications');
         ReplicationChecker.log("Context menu item enabled");
       }
+
+      // Enable collection menu item
+      const collectionMenuItem = win.document.getElementById('replication-checker-collection-menu');
+      if (collectionMenuItem) {
+        collectionMenuItem.removeAttribute('disabled');
+        collectionMenuItem.setAttribute('label', 'Check for Replications');
+        ReplicationChecker.log("Collection menu item enabled");
+      }
       
       ReplicationChecker.log("All menu items enabled and ready to use");
       
@@ -149,9 +173,15 @@
   /**
    * Cleanup function called on shutdown
    */
+  const originalShutdown = ReplicationCheckerPlugin.shutdown;
   ReplicationCheckerPlugin.shutdown = function() {
     try {
       ReplicationChecker.log("Cleaning up UI...");
+      
+      // Call original shutdown (unregister notifier)
+      if (originalShutdown && typeof originalShutdown === 'function') {
+        originalShutdown.call(ReplicationCheckerPlugin);
+      }
       
       // Remove menu items
       if (ReplicationChecker.menuItems) {

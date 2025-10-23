@@ -57,11 +57,12 @@ class BatchMatcher {
         // For each of our DOIs
         for (const doi of ourDois) {
             const ourPrefix = doiToPrefixMap.get(doi);
+            const normalizedOurDoi = this._normalizeDoi(doi);
 
             // Find candidates with matching prefix AND exact doi_o match
             const matchingCandidates = candidates.filter(candidate =>
                 candidate.matchedPrefix === ourPrefix &&
-                this._normalizeDoi(candidate.doi_o) === doi
+                this._normalizeDoi(candidate.doi_o) === normalizedOurDoi
             );
 
             // Assign matching candidates as replications for this DOI

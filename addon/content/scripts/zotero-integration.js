@@ -6,32 +6,34 @@
 var ZoteroIntegration = {
 
   async getAllDOIsFromLibrary() {
-    const libraryID = Zotero.getActiveZoteroPane().getSelectedLibraryID();
-    const items = [];
-    const search = new Zotero.Search();
-    search.libraryID = libraryID; 
-    search.addCondition('itemType', 'isNot', 'attachment');
-    search.addCondition('itemType', 'isNot', 'note');
-    const itemIDs = await search.search();
+  const libraryID = Zotero.getActiveZoteroPane().getSelectedLibraryID();
+  const items = [];
+  const search = new Zotero.Search();
+  search.libraryID = libraryID; 
+  search.addCondition('itemType', 'isNot', 'attachment');
+  search.addCondition('itemType', 'isNot', 'note');
+  const itemIDs = await search.search();
 
-    Zotero.debug(`Found ${itemIDs.length} items in library`);
+  Zotero.debug(`Found ${itemIDs.length} items in library`);
 
-    for (let itemID of itemIDs) {
-        const item = await Zotero.Items.getAsync(itemID);
-        let doi = item.getField('DOI');
-        if (!doi) {
-            const extra = item.getField('extra');
-            if (extra) {
-                const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
-                if (doiMatch) {
-                    doi = doiMatch[1].trim();
-                }
-            }
-        }
-        if (doi) {
-            items.push({ itemID, doi });
-        }
-    }
+  for (let itemID of itemIDs) {
+      const item = await Zotero.Items.getAsync(itemID);
+      let doi = item.getField('DOI');
+      Zotero.debug(`Raw DOI for item ${itemID}: ${doi}`);
+      if (!doi) {
+          const extra = item.getField('extra');
+          if (extra) {
+              const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
+              if (doiMatch) {
+                  doi = doiMatch[1].trim();
+                  Zotero.debug(`Extracted DOI from extra for item ${itemID}: ${doi}`);
+              }
+          }
+      }
+      if (doi) {
+          items.push({ itemID, doi });
+      }
+  }
 
     Zotero.debug(`Found ${items.length} items with DOIs`);
     return items;
@@ -61,52 +63,52 @@ var ZoteroIntegration = {
   },
 
   async getDOIsFromCollection(collectionID) {
-    const items = [];
-    const collection = Zotero.Collections.get(collectionID);
-    if (!collection) {
-      Zotero.debug(`Collection with ID ${collectionID} not found`);
+      const items = [];
+      const collection = Zotero.Collections.get(collectionID);
+      if (!collection) {
+        Zotero.debug(`Collection with ID ${collectionID} not found`);
+        return items;
+      }
+
+      const libraryID = collection.libraryID;
+      const processCollection = async (colID) => {
+        const col = Zotero.Collections.get(colID);
+        if (!col) return;
+
+        const search = new Zotero.Search();
+        search.libraryID = libraryID;
+        search.addCondition('collection', 'is', col.key);  // Fix: Use col.key (string) instead of colID.toString()
+        search.addCondition('itemType', 'isNot', 'attachment');
+        search.addCondition('itemType', 'isNot', 'note');
+        const itemIDs = await search.search();
+
+        for (let itemID of itemIDs) {
+          const item = await Zotero.Items.getAsync(itemID);
+          let doi = item.getField('DOI');
+          if (!doi) {
+              const extra = item.getField('extra');
+              if (extra) {
+                  const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
+                  if (doiMatch) {
+                      doi = doiMatch[1].trim();
+                  }
+              }
+          }
+          if (doi) {
+            items.push({ itemID, doi });
+          }
+        }
+
+        // Recursively process subcollections
+        const subCollections = Zotero.Collections.getByParent(colID, true) || [];
+        for (let subCol of subCollections) {
+          await processCollection(subCol.id);
+        }
+      };
+
+      await processCollection(collectionID);
+      Zotero.debug(`Found ${items.length} items with DOIs in collection ${collectionID} (key: ${collection.key})`);
       return items;
-    }
-
-    const libraryID = collection.libraryID;
-    const processCollection = async (colID) => {
-      const col = Zotero.Collections.get(colID);
-      if (!col) return;
-
-      const search = new Zotero.Search();
-      search.libraryID = libraryID;
-      search.addCondition('collection', 'is', colID.toString());
-      search.addCondition('itemType', 'isNot', 'attachment');
-      search.addCondition('itemType', 'isNot', 'note');
-      const itemIDs = await search.search();
-
-      for (let itemID of itemIDs) {
-        const item = await Zotero.Items.getAsync(itemID);
-        let doi = item.getField('DOI');
-        if (!doi) {
-            const extra = item.getField('extra');
-            if (extra) {
-                const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
-                if (doiMatch) {
-                    doi = doiMatch[1].trim();
-                }
-            }
-        }
-        if (doi) {
-          items.push({ itemID, doi });
-        }
-      }
-
-      // Recursively process subcollections
-      const subCollections = Zotero.Collections.getByParent(colID, true) || [];
-      for (let subCol of subCollections) {
-        await processCollection(subCol.id);
-      }
-    };
-
-    await processCollection(collectionID);
-    Zotero.debug(`Found ${items.length} items with DOIs in collection ${collectionID}`);
-    return items;
   },
 
   async addTag(itemID, tagName) {

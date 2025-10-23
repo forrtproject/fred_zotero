@@ -382,7 +382,7 @@ var ReplicationCheckerPlugin = {
       // Add outcome tags based on current replications (duplicates ignored)
       const allowedOutcomes = {
         successful: "Replication: Successful",
-        failure: "Replication: Failure",
+        failed: "Replication: Failure",
         mixed: "Replication: Mixed"
       };
       const uniqueOutcomes = new Set(

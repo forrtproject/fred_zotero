@@ -13,7 +13,9 @@ This plugin was developed as a [FORRT](https://forrt.org/) project to build a wo
 - ⚡ **Fast**: Efficient hash-based lookup with collision handling
 
 ## Installation
+
 ### Prerequisites
+
 Zotero version 7 or later. Guidance on installation and updating for Zotero is available here: https://www.zotero.org/support/installation
 
 ### From XPI File
@@ -54,6 +56,10 @@ This may take some time depending on the size of the library. While the plugin i
 1. Select one or more items in your library
 2. Right-click → **Check for Replications**
 3. Selected items will be checked and tagged if replications are found
+
+### Check Newly Added Items
+
+- The plugin automatically checks newly added items to your Library or sub-folders
 
 ## How It Works
 
@@ -129,9 +135,6 @@ Enable Zotero debug output:
 - [ ] Add caching to avoid re-checking items
 - [ ] Support for checking new items automatically
 - [ ] Export replication report
-
-## Contributing
-We welcome all forms of contribution! [Get in touch](https://forrt.org/about/get-involved/) if you want to get involved.
 
 ## Feedback
 Do you have feedback for us? Open an issue here if you encounter bugs or documentation issues. You can also contact us anonymously about the Replication Checker Plug [here](https://tinyurl.com/y5evebv9).

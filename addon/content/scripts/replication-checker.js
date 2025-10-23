@@ -535,7 +535,6 @@ var ReplicationCheckerPlugin = {
 
   _createReplicationLi(rep) {
     let li = '<li>';
-    li += '<i>This is an automatically generated note. Do not make changes!</i><br>';
     li += `<strong>${this._escapeHtml(rep.title_r || 'No title available')}</strong><br>`;
     li += `${this._parseAuthors(rep.author_r)} (${this._escapeHtml(rep.year_r || 'N/A')})<br>`;
     li += `<em>${this._escapeHtml(rep.journal_r || 'No journal')}</em><br>`;
@@ -558,6 +557,7 @@ var ReplicationCheckerPlugin = {
    */
   createReplicationNote(replications) {
     let html = '<h2>Replications Found</h2>';
+    html += '<i>This is an automatically generated note. Do not make changes!</i><br>';
     html += '<p>This study has been replicated:</p>';
     html += '<ul>';
     for (let rep of replications) {

@@ -102,7 +102,19 @@
         menuitem.setAttribute('label', 'Check for Replications (Initializing...)');
         menuitem.setAttribute('disabled', 'true');
         menuitem.addEventListener('command', () => {
-          ReplicationCheckerPlugin.checkSelectedCollection();
+          const zoteroPane = Zotero.getActiveZoteroPane();
+          if (zoteroPane) {
+            const collection = zoteroPane.getSelectedCollection();
+            if (collection && collection.id) {
+              ReplicationCheckerPlugin.checkSelectedCollection(collection.id);
+            } else {
+              Zotero.logError("No collection selected for replication check");
+              Services.prompt.alert(win, "Zotero Replication Checker", "Please select a collection to check for replications.");
+            }
+          } else {
+            Zotero.logError("Zotero pane is not available");
+            Services.prompt.alert(win, "Zotero Replication Checker", "Zotero pane is not available. Please try again.");
+          }
         });
         collectionMenu.appendChild(menuitem);
         ReplicationChecker.menuItems = ReplicationChecker.menuItems || [];

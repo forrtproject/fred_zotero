@@ -72,19 +72,27 @@ var ReplicationCheckerPlugin = {
 
       for (let itemID of itemIDs) {
         const item = await Zotero.Items.getAsync(itemID);
-
+        
         // Skip attachments, notes, and items already tagged
         if (!item || item.isAttachment() || item.isNote()) {
           continue;
         }
 
-        const doi = item.getField('DOI');
+        let doi = item.getField('DOI');
+        if (!doi) {
+            const extra = item.getField('extra');
+            if (extra) {
+                const doiMatch = extra.match(/doi\s*[:=]\s*([^\n]+)/i);
+                if (doiMatch) {
+                    doi = doiMatch[1].trim();
+                }
+            }
+        }
         if (doi) {
-          // Check if already has replication tag
-          const hasTag = await ZoteroIntegration.hasReplicationTag(itemID);
-          if (!hasTag) {
-            itemsToCheck.push({ itemID, doi });
-          }
+            const normalizedDoi = new BatchMatcher(null)._normalizeDoi(doi); 
+            if (normalizedDoi) {
+                itemsToCheck.push({ itemID, doi: normalizedDoi });
+            }
         }
       }
 
@@ -135,7 +143,7 @@ var ReplicationCheckerPlugin = {
       for (let i = 0; i < Math.min(replications.length, 3); i++) {
         const rep = replications[i];
         message += `${i + 1}. ${rep.title_r}\n`;
-        message += `   ${this._parseAuthors(rep.author_r)} (${rep.year_r})\n`;
+        message += `(${rep.year_r})\n`;
         message += `   Outcome: ${rep.outcome || 'Not specified'}\n\n`;
       }
 
@@ -156,7 +164,7 @@ var ReplicationCheckerPlugin = {
 
       if (result) {
         // User clicked "OK" - add tag and note
-        await this.notifyUser(itemID, replications);
+        await this.notifyUserAndAddReplications(itemID, replications);
 
         // Show success message
         const progressWin = new Zotero.ProgressWindow();
@@ -220,7 +228,7 @@ var ReplicationCheckerPlugin = {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found replications for ${matchCount} items`]);
+      progressWin.addLines([`Found replications`]);
       progressWin.startCloseTimer(3000);
     } catch (error) {
       Zotero.logError("Error checking library: " + error);
@@ -346,7 +354,7 @@ var ReplicationCheckerPlugin = {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found replications for ${matchCount} items`]);
+      progressWin.addLines([`Found replications`]);
       progressWin.startCloseTimer(3000);
 
       // Show simplified alert
@@ -356,106 +364,106 @@ var ReplicationCheckerPlugin = {
     }
   },
 
-  /**
-   * Notify user about replications found
-   * @param {number} itemID
-   * @param {Array} replications
-   */
-  async notifyUser(itemID, replications) {
-    try {
-      const item = await Zotero.Items.getAsync(itemID);
+/**
+ * Notify user about replications found
+ * @param {number} itemID
+ * @param {Array} replications
+ */
+async notifyUser(itemID, replications) {
+  try {
+    const item = await Zotero.Items.getAsync(itemID);
 
-      // Deduplicate replications by doi_r
-      const seen = new Set();
-      const uniqueReplications = replications.filter(rep => {
-        const doi_r = (rep.doi_r || '').trim();
-        if (doi_r && !seen.has(doi_r)) {
-          seen.add(doi_r);
-          return true;
+    // Deduplicate replications by doi_r
+    const seen = new Set();
+    const uniqueReplications = replications.filter(rep => {
+      const doi_r = (rep.doi_r || '').trim();
+      if (doi_r && !seen.has(doi_r)) {
+        seen.add(doi_r);
+        return true;
+      }
+      return false;
+    });
+
+    // Always add "Has Replication" tag if missing
+    await ZoteroIntegration.addTag(itemID, "Has Replication");
+
+    // Add outcome tags based on current replications (duplicates ignored)
+    const allowedOutcomes = {
+      successful: "Replication: Successful",
+      failure: "Replication: Failure",
+      mixed: "Replication: Mixed"
+    };
+    const uniqueOutcomes = new Set(
+      uniqueReplications
+        .map(r => r.outcome && typeof r.outcome === 'string' ? r.outcome.toLowerCase() : null)
+        .filter(o => o && Object.keys(allowedOutcomes).includes(o))
+    );
+
+   // Add all tags concurrently
+    await Promise.all(
+      [...uniqueOutcomes].map(outcome =>
+        ZoteroIntegration.addTag(itemID, allowedOutcomes[outcome])
+      )
+    );
+
+    // Get child notes to find existing replication note
+    const noteIDs = item.getNotes();
+    let existingNote = null;
+    for (let noteID of noteIDs) {
+      const note = await Zotero.Items.getAsync(noteID);
+      const currentNoteHTML = note.getNote();
+      if (currentNoteHTML.startsWith('<h2>Replications Found</h2>')) {
+        existingNote = note;
+        break;
+      }
+    }
+
+    if (existingNote) {
+      // Incremental update: Parse HTML and append new <li> if DOI not present
+      let currentHTML = existingNote.getNote();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(currentHTML, 'text/html');
+      const ul = doc.querySelector('ul');
+      if (!ul) {
+        // Malformed note; overwrite as fallback
+        existingNote.setNote(this.createReplicationNote(uniqueReplications));
+        await existingNote.saveTx();
+        return;
+      }
+
+      // Extract existing DOIs from <li>s
+      const existingLis = Array.from(ul.querySelectorAll('li'));
+      const existingDOIs = new Set();
+      existingLis.forEach(liElem => {
+        const doiA = liElem.querySelector('a[href^="https://doi.org/"]');
+        if (doiA) {
+          const doi = doiA.href.replace('https://doi.org/', '').trim();
+          existingDOIs.add(doi);
         }
-        return false;
       });
 
-      // Always add "Has Replication" tag if missing
-      await ZoteroIntegration.addTag(itemID, "Has Replication");
-
-      // Add outcome tags based on current replications (duplicates ignored)
-      const allowedOutcomes = {
-        successful: "Replication: Successful",
-        failure: "Replication: Failure",
-        mixed: "Replication: Mixed"
-      };
-      const uniqueOutcomes = new Set(
-        uniqueReplications
-          .map(r => r.outcome && typeof r.outcome === 'string' ? r.outcome.toLowerCase() : null)
-          .filter(o => o && Object.keys(allowedOutcomes).includes(o))
-      );
-      // Add all tags concurrently
-      await Promise.all(
-        [...uniqueOutcomes].map(outcome =>
-          ZoteroIntegration.addTag(itemID, allowedOutcomes[outcome])
-        )
-      );
-
-      // Get child notes to find existing replication note
-      const noteIDs = item.getNotes();
-      let existingNote = null;
-      for (let noteID of noteIDs) {
-        const note = await Zotero.Items.getAsync(noteID);
-        const currentNoteHTML = note.getNote();
-        if (currentNoteHTML.startsWith('<h2>Replications Found</h2>')) {
-          existingNote = note;
-          break;
+      // Append new <li>s if not duplicate
+      let added = false;
+      uniqueReplications.forEach(rep => {
+        const doi_r = (rep.doi_r || '').trim();
+        if (doi_r && !existingDOIs.has(doi_r)) {
+          const newLiHTML = this._createReplicationLi(rep);
+          ul.insertAdjacentHTML('beforeend', newLiHTML);
+          existingDOIs.add(doi_r);
+          added = true;
         }
+      });
+
+      if (added) {
+        const newHTML = doc.body.innerHTML;
+        existingNote.setNote(newHTML);
+        await existingNote.saveTx();
       }
-
-      if (existingNote) {
-        // Incremental update: Parse HTML and append new <li> if DOI not present
-        let currentHTML = existingNote.getNote();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(currentHTML, 'text/html');
-        const ul = doc.querySelector('ul');
-        if (!ul) {
-          // Malformed note; overwrite as fallback
-          existingNote.setNote(this.createReplicationNote(uniqueReplications));
-          await existingNote.saveTx();
-          return;
-        }
-
-        // Extract existing DOIs from <li>s
-        const existingLis = Array.from(ul.querySelectorAll('li'));
-        const existingDOIs = new Set();
-        existingLis.forEach(liElem => {
-          const doiA = liElem.querySelector('a[href^="https://doi.org/"]');
-          if (doiA) {
-            const doi = doiA.href.replace('https://doi.org/', '').trim();
-            existingDOIs.add(doi);
-          }
-        });
-
-        // Append new <li>s if not duplicate
-        let added = false;
-        uniqueReplications.forEach(rep => {
-          const doi_r = (rep.doi_r || '').trim();
-          if (doi_r && !existingDOIs.has(doi_r)) {
-            const newLiHTML = this._createReplicationLi(rep);
-            ul.insertAdjacentHTML('beforeend', newLiHTML);  // Add to end of <ul>
-            existingDOIs.add(doi_r);
-            added = true;
-          }
-        });
-
-        if (added) {
-          const newHTML = doc.body.innerHTML;  // Serialize back (preserves user content after <ul>)
-          existingNote.setNote(newHTML);
-          await existingNote.saveTx();
-        }
-      } else {
-        // Create new note
-        const noteHTML = this.createReplicationNote(uniqueReplications);
-        await ZoteroIntegration.addNote(itemID, noteHTML);
-      }
-
+    } else {
+      // Create new note
+      const noteHTML = this.createReplicationNote(uniqueReplications);
+      await ZoteroIntegration.addNote(itemID, noteHTML);
+    }
       // New: Automatically add replications to "Replication folder" collection
       const libraryID = item.libraryID; // Use same library as original item (personal or group)
       let collections = Zotero.Collections.getByLibrary(libraryID, true); // true for including subcollections, but we want top-level
@@ -516,16 +524,149 @@ var ReplicationCheckerPlugin = {
         replicationCollection.addItem(newItemID);
         await replicationCollection.saveTx();
       }
+  } catch (error) {
+    Zotero.logError(`Failed to notify user for item ${itemID}: ${error.message}`);
+    throw error;
+  }
+},
 
-    } catch (error) {
-      throw new Error(`Failed to notify user for item ${itemID}: ${error.message}`);
+/**
+ * Notify user and add replications to folder (wrapper function)
+ * Combines notifyUser and addReplicationsToFolder calls
+ * @param {number} itemID
+ * @param {Array} replications
+ */
+async notifyUserAndAddReplications(itemID, replications) {
+  try {
+    // Step 1: Add tags and notes to the original item
+    await this.notifyUser(itemID, replications);
+    
+    // Step 2: Add replications to the Replication folder
+    await this.addReplicationsToFolder(itemID, replications);
+  } catch (error) {
+    Zotero.logError(`Error in notifyUserAndAddReplications for item ${itemID}: ${error.message}`);
+    throw error;
+  }
+},
+
+/**
+ * Add replications to "Replication folder" collection
+ * @param {number} itemID - The original item ID (used to get library)
+ * @param {Array} replications - Array of replication objects
+ */
+async addReplicationsToFolder(itemID, replications) {
+  try {
+    const item = await Zotero.Items.getAsync(itemID);
+
+    // Deduplicate replications by doi_r
+    const seen = new Set();
+    const uniqueReplications = replications.filter(rep => {
+      const doi_r = (rep.doi_r || '').trim();
+      if (doi_r && !seen.has(doi_r)) {
+        seen.add(doi_r);
+        return true;
+      }
+      return false;
+    });
+
+    // Get or create "Replication folder" collection
+    const libraryID = item.libraryID;
+    let collections = Zotero.Collections.getByLibrary(libraryID, true);
+    let replicationCollection = collections.find(c => c.name === "Replication folder");
+
+    if (!replicationCollection) {
+      replicationCollection = new Zotero.Collection();
+      replicationCollection.libraryID = libraryID;
+      replicationCollection.name = "Replication folder";
+      await replicationCollection.save();
+      Zotero.debug(`Created new "Replication folder" collection in library ${libraryID}`);
     }
-  },
 
+    // WRAP THE LOOP IN A TRANSACTION
+    await Zotero.DB.executeTransaction(async function() {
+      for (let rep of uniqueReplications) {
+        const doi_r = (rep.doi_r || '').trim();
+        if (!doi_r || !doi_r.startsWith('10.')) {
+          Zotero.debug(`Skipping invalid or missing DOI for replication: ${doi_r}`);
+          continue;
+        }
+
+        // Check for duplicate by DOI in the library
+        const search = new Zotero.Search();
+        search.libraryID = libraryID;
+        search.addCondition('DOI', 'is', doi_r);
+        const existingIDs = await search.search();
+        if (existingIDs.length > 0) {
+          Zotero.debug(`Skipping duplicate replication item with DOI: ${doi_r}`);
+          continue;
+        }
+
+        try {
+          // Create new journal article item
+          const newItem = new Zotero.Item('journalArticle');
+          newItem.libraryID = libraryID;
+          newItem.setField('title', rep.title_r || 'Untitled Replication');
+          newItem.setField('publicationTitle', rep.journal_r || '');
+          newItem.setField('volume', rep.volume_r || '');
+          newItem.setField('issue', rep.issue_r || '');
+          newItem.setField('pages', rep.pages_r || '');
+          newItem.setField('date', rep.year_r ? rep.year_r.toString() : '');
+          newItem.setField('DOI', doi_r);
+
+          // Save the new item FIRST (before adding creators)
+          const newItemID = await newItem.save();
+          Zotero.debug(`Added new replication item with ID ${newItemID} for DOI ${doi_r}`);
+
+          // Parse authors from JSON string
+          let authors = [];
+          if (rep.author_r) {
+            try {
+              if (typeof rep.author_r === 'string') {
+                authors = JSON.parse(rep.author_r);
+              } else if (Array.isArray(rep.author_r)) {
+                authors = rep.author_r;
+              }
+            } catch (e) {
+              Zotero.debug(`Failed to parse authors for DOI ${doi_r}: ${e.message}`);
+              authors = [];
+            }
+          }
+
+          // Add authors AFTER saving item
+          if (authors && Array.isArray(authors) && authors.length > 0) {
+            for (let author of authors) {
+              try {
+                newItem.addCreator({
+                  creatorType: 'author',
+                  firstName: author.given || '',
+                  lastName: author.family || ''
+                });
+              } catch (e) {
+                Zotero.debug(`Failed to add creator for DOI ${doi_r}: ${e.message}`);
+              }
+            }
+            // Save again to commit authors
+            await newItem.save();
+          }
+
+          // Add to collection
+          replicationCollection.addItem(newItemID);
+          await replicationCollection.save();
+          Zotero.debug(`Added replication item ${newItemID} to "Replication folder"`);
+        } catch (error) {
+          Zotero.debug(`Error creating replication item for DOI ${doi_r}: ${error.message}`);
+          // Continue to next replication even if one fails
+        }
+      }
+    });
+
+  } catch (error) {
+    Zotero.logError(`Failed to add replications to folder for item ${itemID}: ${error.message}`);
+    throw error;
+  }
+},
   /**
-   * Parse authors from JSON string to APA format
-   * @param {Array} authors - Array of author objects
-   * @returns {string} - Formatted author string (e.g., "Hull, J. G., Slone, L. B., Meteyer, K. B., & Matthews, A. R.")
+   * Parse authors into formatted string
    */
   _parseAuthors(authors) {
     if (!authors || !Array.isArray(authors) || authors.length === 0) return 'No authors available';

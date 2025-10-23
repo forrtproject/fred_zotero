@@ -183,137 +183,27 @@ var ReplicationCheckerPlugin = {
   },
 
   /**
-   * Check selected items for replications
-   */
-  async checkSelectedItems() {
-    try {
-      const progressWin = new Zotero.ProgressWindow();
-      progressWin.changeHeadline("Checking Selected Items for Replications");
-      progressWin.show();
-      progressWin.addLines(["Scanning selected items..."]);
-
-      const selectedItems = ZoteroIntegration.getSelectedDOIs();
-      const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
-      const uniqueDois = [...new Set(selectedItems.map(item => item.doi.toLowerCase()))].map(doi => selectedItems.find(item => item.doi.toLowerCase() === doi).doi);
-
-      progressWin.addLines([`Found ${selectedItems.length} items with DOIs (${uniqueDois.length} unique)`]);
-      progressWin.addLines(["Checking against replication database..."]);
-
-      const results = await this.matcher.checkBatch(uniqueDois);
-
-      const processedItems = new Set();
-      let matchCount = 0;
-
-      for (let result of results) {
-        if (result.replications.length > 0) {
-          const matchingItems = libraryItems.filter(item =>
-            this.matcher._normalizeDoi(item.doi) === result.doi
-          );
-          for (let selectedItem of matchingItems) {
-            if (!processedItems.has(selectedItem.itemID)) {
-              try {
-                await this.notifyUserAndAddReplications(selectedItem.itemID, result.replications);
-                matchCount++;
-              } catch (error) {
-                Zotero.logError(`Error processing item ${selectedItem.itemID}: ${error.message}`);
-              }
-              processedItems.add(selectedItem.itemID);
-            }
-          }
-        }
-      }
-
-      progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Added/updated replication notes for ${matchCount} items`]);
-      progressWin.startCloseTimer(3000);
-
-      this.showResultsAlert(results, uniqueDois.length, selectedItems.length, true, false);
-    } catch (error) {
-      Zotero.logError("Error checking selected items: " + error);
-      const win = Zotero.getMainWindow();
-      if (win) {
-        Services.prompt.alert(win, "Zotero Replication Checker", "Error checking selected items: " + error.message);
-      }
-    }
-  },
-
-  /**
-   * Check entire collection for replications
-   * @param {number} collectionID
-   */
-  async checkSelectedCollection(collectionID) {
-    await this.checkEntireCollection(collectionID);
-  },
-
-  async checkEntireCollection(collectionID) {
-    try {
-      const progressWin = new Zotero.ProgressWindow();
-      progressWin.changeHeadline("Checking Collection for Replications");
-      progressWin.show();
-      progressWin.addLines(["Scanning collection..."]);
-
-      const collectionItems = await ZoteroIntegration.getDOIsFromCollection(collectionID);
-      const uniqueDois = [...new Set(collectionItems.map(item => item.doi.toLowerCase()))].map(doi => collectionItems.find(item => item.doi.toLowerCase() === doi).doi);
-
-      progressWin.addLines([`Found ${collectionItems.length} items with DOIs (${uniqueDois.length} unique)`]);
-      progressWin.addLines(["Checking against replication database..."]);
-
-      const results = await this.matcher.checkBatch(uniqueDois);
-
-      const processedItems = new Set();
-      let matchCount = 0;
-
-      for (let result of results) {
-        if (result.replications.length > 0) {
-          const matchingItems = collectionItems.filter(item =>
-            this.matcher._normalizeDoi(item.doi) === result.doi
-          );
-          for (let collectionItem of matchingItems) {
-            if (!processedItems.has(collectionItem.itemID)) {
-              try {
-                await this.notifyUserAndAddReplications(collectionItem.itemID, result.replications);
-                matchCount++;
-              } catch (error) {
-                Zotero.logError(`Error processing item ${collectionItem.itemID}: ${error.message}`);
-              }
-              processedItems.add(collectionItem.itemID);
-            }
-          }
-        }
-      }
-
-      progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Added/updated replication notes for ${matchCount} items`]);
-      progressWin.startCloseTimer(3000);
-
-      this.showResultsAlert(results, uniqueDois.length, collectionItems.length, false, true);
-    } catch (error) {
-      Zotero.logError("Error checking collection: " + error);
-      const win = Zotero.getMainWindow();
-      if (win) {
-        Services.prompt.alert(win, "Zotero Replication Checker", "Error checking collection: " + error.message);
-      }
-    }
-  },
-
-  /**
    * Check entire library for replications
    */
   async checkEntireLibrary() {
     try {
+      // Show progress
       const progressWin = new Zotero.ProgressWindow();
-      progressWin.changeHeadline("Checking Library for Replications");
+      progressWin.changeHeadline("Checking for Replications");
       progressWin.show();
       progressWin.addLines(["Scanning library..."]);
 
+      // Get all DOIs from library
       const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
-      const uniqueDois = [...new Set(libraryItems.map(item => item.doi.toLowerCase()))].map(doi => libraryItems.find(item => item.doi.toLowerCase() === doi).doi);
+      const uniqueDois = [...new Set(libraryItems.map(item => item.doi.toLowerCase()))].map(doi => libraryItems.find(item => item.doi.toLowerCase() === doi).doi); // Unique DOIs for querying
 
       progressWin.addLines([`Found ${libraryItems.length} items with DOIs (${uniqueDois.length} unique)`]);
       progressWin.addLines(["Checking against replication database..."]);
 
+      // Check for replications using the matcher and API
       const results = await this.matcher.checkBatch(uniqueDois);
 
+      // Process results with unique item tracking
       const processedItems = new Set();
       let matchCount = 0;
 
@@ -325,28 +215,152 @@ var ReplicationCheckerPlugin = {
           for (let libraryItem of matchingItems) {
             if (!processedItems.has(libraryItem.itemID)) {
               try {
-                await this.notifyUserAndAddReplications(libraryItem.itemID, result.replications);
+                await this.notifyUser(libraryItem.itemID, result.replications);
+                processedItems.add(libraryItem.itemID);
                 matchCount++;
               } catch (error) {
                 Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
               }
-              processedItems.add(libraryItem.itemID);
             }
           }
         }
       }
 
+      // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Added/updated replication notes for ${matchCount} items`]);
+      progressWin.addLines([`Found replications for ${matchCount} items`]);
       progressWin.startCloseTimer(3000);
-
-      this.showResultsAlert(results, uniqueDois.length, libraryItems.length, false, false);
     } catch (error) {
       Zotero.logError("Error checking library: " + error);
-      const win = Zotero.getMainWindow();
-      if (win) {
-        Services.prompt.alert(win, "Zotero Replication Checker", "Error checking library: " + error.message);
+    }
+  },
+
+  /**
+   * Check selected items for replications
+   */
+  async checkSelectedItems() {
+    try {
+      // Get selected DOIs
+      const selectedItems = ZoteroIntegration.getSelectedDOIs();
+      const uniqueDois = [...new Set(selectedItems.map(item => item.doi.toLowerCase()))].map(doi => selectedItems.find(item => item.doi.toLowerCase() === doi).doi); // Unique DOIs for querying
+
+      if (uniqueDois.length === 0) {
+        const win = Zotero.getMainWindow();
+        if (win) {
+          Services.prompt.alert(win, "Zotero Replication Checker", "No DOIs found in selected items");
+        }
+        return;
       }
+
+      // Check for replications
+      const results = await this.matcher.checkBatch(uniqueDois);
+
+      // Process results with unique item tracking
+      const processedItems = new Set();
+      for (let result of results) {
+        if (result.replications.length > 0) {
+          const matchingItems = selectedItems.filter(item =>
+            this.matcher._normalizeDoi(item.doi) === result.doi
+          );
+          for (let libraryItem of matchingItems) {
+            if (!processedItems.has(libraryItem.itemID)) {
+              const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
+              if (!hasTag || result.replications.length > 0) { // Ensure note is added if new replications are found
+                try {
+                  await this.notifyUser(libraryItem.itemID, result.replications);
+                  processedItems.add(libraryItem.itemID);
+                } catch (error) {
+                  Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Show simplified alert
+      this.showResultsAlert(results, uniqueDois.length, selectedItems.length, true);
+    } catch (error) {
+      Zotero.logError("Error checking selected items: " + error);
+    }
+  },
+
+  /**
+   * Check selected collection for replications
+   */
+  async checkSelectedCollection() {
+    try {
+      const collection = Zotero.getActiveZoteroPane().getSelectedCollection();
+      if (!collection) {
+        const win = Zotero.getMainWindow();
+        if (win) {
+          win.alert("No Collection", "No collection selected");
+        }
+        return;
+      }
+
+      // Show progress
+      const progressWin = new Zotero.ProgressWindow();
+      progressWin.changeHeadline("Checking for Replications in Collection");
+      progressWin.show();
+      progressWin.addLines(["Scanning collection..."]);
+
+      // Get DOIs from collection
+      const selectedItems = await ZoteroIntegration.getDOIsFromCollection(collection.id);
+      Zotero.debug(`Retrieved ${selectedItems.length} items from collection ${collection.id}`);
+      if (!selectedItems || selectedItems.length === 0) {
+        progressWin.changeHeadline("Check Complete");
+        progressWin.addLines(["No items with DOIs found in collection"]);
+        progressWin.startCloseTimer(3000);
+        const win = Zotero.getMainWindow();
+        if (win) {
+          win.alert("No DOIs", "No DOIs found in collection");
+        }
+        return;
+      }
+
+      const uniqueDois = [...new Set(selectedItems.map(item => item.doi.toLowerCase()))].map(doi => selectedItems.find(item => item.doi.toLowerCase() === doi).doi); // Unique DOIs for querying
+
+      progressWin.addLines([`Found ${selectedItems.length} items with DOIs (${uniqueDois.length} unique)`]);
+      progressWin.addLines(["Checking against replication database..."]);
+
+      // Check for replications using the matcher and API
+      const results = await this.matcher.checkBatch(uniqueDois);
+
+      // Process results with unique item tracking
+      const processedItems = new Set();
+      let matchCount = 0;
+      for (let result of results) {
+        if (result.replications.length > 0) {
+          const matchingItems = selectedItems.filter(item =>
+            this.matcher._normalizeDoi(item.doi) === result.doi
+          );
+          for (let libraryItem of matchingItems) {
+            if (!processedItems.has(libraryItem.itemID)) {
+              const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
+              if (!hasTag || result.replications.length > 0) { // Ensure note is added if new replications are found
+                try {
+                  await this.notifyUser(libraryItem.itemID, result.replications);
+                  processedItems.add(libraryItem.itemID);
+                  matchCount++;
+                } catch (error) {
+                  Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Update progress
+      progressWin.changeHeadline("Check Complete");
+      progressWin.addLines([`Found replications for ${matchCount} items`]);
+      progressWin.startCloseTimer(3000);
+
+      // Show simplified alert
+      this.showResultsAlert(results, uniqueDois.length, selectedItems.length, false, true);
+    } catch (error) {
+      Zotero.logError("Error checking collection: " + error);
     }
   },
 

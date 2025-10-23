@@ -239,7 +239,7 @@ var ReplicationCheckerPlugin = {
       if (uniqueDois.length === 0) {
         const win = Zotero.getMainWindow();
         if (win) {
-          win.alert("No DOIs", "No DOIs found in selected items");
+          Services.prompt.alert(win, "Zotero Replication Checker", "No DOIs found in selected items");
         }
         return;
       }
@@ -614,7 +614,7 @@ var ReplicationCheckerPlugin = {
 
     message += "\nView notes for details or select items to re-check.";
 
-    win.alert(message);
+    Services.prompt.alert(win, "Zotero Replication Checker", message);
   },
 
   /**

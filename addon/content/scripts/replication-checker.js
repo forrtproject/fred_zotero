@@ -143,7 +143,7 @@ var ReplicationCheckerPlugin = {
       for (let i = 0; i < Math.min(replications.length, 3); i++) {
         const rep = replications[i];
         message += `${i + 1}. ${rep.title_r}\n`;
-        message += `   ${this._parseAuthors(rep.author_r)} (${rep.year_r})\n`;
+        message += `(${rep.year_r})\n`;
         message += `   Outcome: ${rep.outcome || 'Not specified'}\n\n`;
       }
 

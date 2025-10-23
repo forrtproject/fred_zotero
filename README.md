@@ -83,9 +83,15 @@ When a replication is found:
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
 
-#### What does replication outcome mean?
+### What Does Replication Outcome Mean?
 
 The plugin automatically creates a tag and an entry in the note based on the FReD Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Succesful", "Replication: Failed" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FReD-data/blob/main/cos_report.html).
+
+### What Does it Mean if "The study has a linked report"
+
+Some studies are linked to a separate URL. This happens in two cases:
+- The study does not have a published version, therefore it does not have a DOI but a URL
+- The study is part of a multi-study replication effort. The DOI links to the published study, while the URL links to a replication report in a public repositories (e.g. OSF, Zenodo)
 
 ## Data Source
 

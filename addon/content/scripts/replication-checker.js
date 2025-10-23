@@ -190,29 +190,32 @@ var ReplicationCheckerPlugin = {
 
       // Get all DOIs from library
       const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
-      const dois = libraryItems.map(item => item.doi);
+      const uniqueDois = [...new Set(libraryItems.map(item => item.doi.toLowerCase()))].map(doi => libraryItems.find(item => item.doi.toLowerCase() === doi).doi); // Unique DOIs for querying
 
-      progressWin.addLines([`Found ${dois.length} DOIs in library`]);
+      progressWin.addLines([`Found ${libraryItems.length} items with DOIs (${uniqueDois.length} unique)`]);
       progressWin.addLines(["Checking against replication database..."]);
 
       // Check for replications using the matcher and API
-      const results = await this.matcher.checkBatch(dois);
+      const results = await this.matcher.checkBatch(uniqueDois);
 
-      // Process results
+      // Process results with unique item tracking
+      const processedItems = new Set();
       let matchCount = 0;
 
       for (let result of results) {
         if (result.replications.length > 0) {
-          const libraryItem = libraryItems.find(item =>
+          const matchingItems = libraryItems.filter(item =>
             item.doi.toLowerCase() === result.doi.toLowerCase()
           );
-          if (libraryItem) {
-            try {
-              await this.notifyUser(libraryItem.itemID, result.replications);
-              matchCount++;
-            } catch (error) {
-              Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
-              continue; // Skip to the next item instead of crashing
+          for (let libraryItem of matchingItems) {
+            if (!processedItems.has(libraryItem.itemID)) {
+              try {
+                await this.notifyUser(libraryItem.itemID, result.replications);
+                processedItems.add(libraryItem.itemID);
+                matchCount++;
+              } catch (error) {
+                Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
+              }
             }
           }
         }
@@ -220,14 +223,10 @@ var ReplicationCheckerPlugin = {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found ${matchCount} items with replications`]);
+      progressWin.addLines([`Found replications for ${matchCount} items`]);
       progressWin.startCloseTimer(3000);
     } catch (error) {
       Zotero.logError("Error checking library: " + error);
-      const win = Zotero.getMainWindow();
-      if (win) {
-        win.alert("Error", "Error checking for replications: " + error.message);
-      }
     }
   },
 
@@ -238,9 +237,9 @@ var ReplicationCheckerPlugin = {
     try {
       // Get selected DOIs
       const selectedItems = ZoteroIntegration.getSelectedDOIs();
-      const dois = selectedItems.map(item => item.doi);
+      const uniqueDois = [...new Set(selectedItems.map(item => item.doi.toLowerCase()))].map(doi => selectedItems.find(item => item.doi.toLowerCase() === doi).doi); // Unique DOIs for querying
 
-      if (dois.length === 0) {
+      if (uniqueDois.length === 0) {
         const win = Zotero.getMainWindow();
         if (win) {
           win.alert("No DOIs", "No DOIs found in selected items");
@@ -249,36 +248,35 @@ var ReplicationCheckerPlugin = {
       }
 
       // Check for replications
-      const results = await this.matcher.checkBatch(dois);
+      const results = await this.matcher.checkBatch(uniqueDois);
 
-      // Process results
+      // Process results with unique item tracking
+      const processedItems = new Set();
       for (let result of results) {
         if (result.replications.length > 0) {
-          const libraryItem = selectedItems.find(item =>
+          const matchingItems = selectedItems.filter(item =>
             item.doi.toLowerCase() === result.doi.toLowerCase()
           );
-
-          if (libraryItem) {
-            const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
-            if (!hasTag) {
-              try {
-                await this.notifyUser(libraryItem.itemID, result.replications);
-              } catch (error) {
-                Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
+          for (let libraryItem of matchingItems) {
+            if (!processedItems.has(libraryItem.itemID)) {
+              const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
+              if (!hasTag || result.replications.length > 0) { // Ensure note is added if new replications are found
+                try {
+                  await this.notifyUser(libraryItem.itemID, result.replications);
+                  processedItems.add(libraryItem.itemID);
+                } catch (error) {
+                  Zotero.logError(`Error processing item ${libraryItem.itemID}: ${error.message}`);
+                }
               }
             }
           }
         }
       }
 
-      // Show detailed alert
-      this.showResultsAlert(results, dois.length, selectedItems.length, true);
+      // Show simplified alert
+      this.showResultsAlert(results, selectedItems.length, selectedItems.length, true);
     } catch (error) {
       Zotero.logError("Error checking selected items: " + error);
-      const win = Zotero.getMainWindow();
-      if (win) {
-        win.alert("Error", "Error checking for replications: " + error.message);
-      }
     }
   },
 
@@ -289,12 +287,55 @@ var ReplicationCheckerPlugin = {
    */
   async notifyUser(itemID, replications) {
     try {
-      // Add tag
-      await ZoteroIntegration.addTag(itemID, "Has Replication");
+      // Add tag if not present
+      const hasTag = await ZoteroIntegration.hasReplicationTag(itemID);
+      if (!hasTag) {
+        await ZoteroIntegration.addTag(itemID, "Has Replication");
+        // Add specific outcome tags (only if not already tagged)
+        const allowedOutcomes = {
+          successful: "Replication: Successful",
+          failure: "Replication: Failure",
+          mixed: "Replication: Mixed"
+        };
 
-      // Create and add note with replication details
-      const note = this.createReplicationNote(replications);
-      await ZoteroIntegration.addNote(itemID, note);
+        const uniqueOutcomes = new Set(
+          replications
+            .map(r => r.outcome ? r.outcome.toLowerCase() : null)
+            .filter(o => o && Object.keys(allowedOutcomes).includes(o))
+        );
+
+        for (let outcome of uniqueOutcomes) {
+          await ZoteroIntegration.addTag(itemID, allowedOutcomes[outcome]);
+        }
+      }
+
+      // Generate note content
+      const noteHTML = this.createReplicationNote(replications);
+
+      // Get parent item
+      const parentItem = await Zotero.Items.getAsync(itemID);
+
+      // Get child note IDs
+      const noteIDs = parentItem.getNotes();
+
+      let existingNote = null;
+      for (let noteID of noteIDs) {
+        const note = await Zotero.Items.getAsync(noteID);
+        const currentNoteHTML = note.getNote();
+        if (currentNoteHTML.startsWith('<h2>Replications Found</h2>')) {
+          existingNote = note;
+          break;
+        }
+      }
+
+      if (existingNote) {
+        // Update existing note
+        existingNote.setNote(noteHTML);
+        await existingNote.saveTx();
+      } else {
+        // Create new note
+        await ZoteroIntegration.addNote(itemID, noteHTML);
+      }
     } catch (error) {
       throw new Error(`Failed to notify user for item ${itemID}: ${error.message}`);
     }
@@ -308,19 +349,23 @@ var ReplicationCheckerPlugin = {
     let html = '<h2>Replications Found</h2>';
     html += '<p>This study has been replicated:</p>';
     html += '<ul>';
-
     for (let rep of replications) {
       html += '<li>';
+      html += '<i>This is an automatically generated note. Do not make changes!</i><br>';
       html += `<strong>${this._escapeHtml(rep.title_r)}</strong><br>`;
       html += `${this._escapeHtml(this._parseAuthors(rep.author_r))} (${this._escapeHtml(rep.year_r)})<br>`;
       html += `<em>${this._escapeHtml(rep.journal_r)}</em><br>`;
-      if (rep.doi_r && rep.doi_r !== 'null' && rep.doi_r !== 'Not available') {
-        html += `DOI: <a href="https://doi.org/${this._escapeHtml(rep.doi_r)}">${this._escapeHtml(rep.doi_r)}</a><br>`;
-      } else {
-        html += 'DOI: Not available<br>';
+      html += `DOI: <a href="https://doi.org/${this._escapeHtml(rep.doi_r)}">${this._escapeHtml(rep.doi_r)}</a><br>`;
+
+      if (rep.outcome) {
+        html += `Author Reported Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
       }
-      if (rep.outcome && rep.outcome !== 'Not available') {
-        html += `Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong>`;
+
+      // Conditional linking of report only if DOI is present and url_r is https link
+      if (rep.doi_r && rep.doi_r.trim().toLowerCase() !== 'na' &&
+        rep.url_r && typeof rep.url_r === 'string' && rep.url_r.trim().toLowerCase() !== 'na' &&
+        rep.url_r.trim().startsWith('https')) {
+        html += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
       }
       html += '</li>';
     }
@@ -328,12 +373,10 @@ var ReplicationCheckerPlugin = {
     html += '</ul>';
     html += `
       <hr/>
-      <div style="background:#e6f2ff; padding:10px; border-radius:5px; margin-top:15px;">
-        <p><strong>Did you find this result useful? Leave us <a href="https://tinyurl.com/y5evebv9" target="_blank">feedback</a>!</strong></p>
-        <p>
+      <div style="padding:10px; border-radius:5px; margin-top:15px;">
+        <p><strong>Did you find this result useful? Provide feedback <a href="https://tinyurl.com/y5evebv9" target="_blank">here</a>!</strong></p>
       </div>
     `;
-
     html += '<p><small>Generated by Zotero Replication Checker using the FORRT Replication Database (FReD)</small></p>';
     return html;
   },
@@ -378,28 +421,19 @@ var ReplicationCheckerPlugin = {
     if (!win) return;
 
     let message = isSelected ? "Selected Items Scan Complete" : "Library Scan Complete";
-    message += "\nTotal items: " + totalItems;
-    message += "\nItems with DOIs: " + doiCount;
-    message += "\n\nItems with replications:";
+    message += `\nTotal items checked: ${totalItems}`;
+    message += `\nItems with DOIs: ${doiCount}`;
+    message += "\n\nReplication check results:";
 
     const matchCount = results.filter(r => r.replications.length > 0).length;
 
     if (matchCount > 0) {
-      message += "\n";
-
-      for (const result of results) {
-        if (result.replications.length > 0) {
-          const title = result.title || result.doi;
-          message += "• " + title + "\n";
-          message += "  " + result.replications.length + " replication(s) found\n";
-          message += "\n";
-        }
-      }
+      message += `\n${matchCount} item(s) have replications.`;
     } else {
       message += "\nNo replications found.";
     }
 
-    message += "\nSelect individual items and use 'Check for Replications' for details.";
+    message += "\nView notes for details or select items to re-check.";
 
     win.alert(message);
   },

@@ -74,6 +74,7 @@ class APIDataSource extends ReplicationDataSource {
                             journal_r: rep.journal_r || 'No journal',
                             year_r: rep.year_r || null,
                             outcome: rep.outcome || 'Not available',
+                            url_r: rep.url_r || '',
                             matchedPrefix: prefix,
                             fullData: rep
                         });

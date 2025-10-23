@@ -469,6 +469,7 @@ async notifyUser(itemID, replications) {
           Zotero.debug(`Skipping invalid or missing DOI for replication: ${doi_r}`);
           continue; // Skip if no valid DOI
         }
+      }
 
         // Check for duplicate by DOI in the library
         const search = new Zotero.Search();
@@ -665,18 +666,17 @@ async addReplicationsToFolder(itemID, replications) {
 
   _createReplicationLi(rep) {
     let li = '<li>';
-    li += '<i>This is an automatically generated note. Do not make changes!</i><br>';
     li += `<strong>${this._escapeHtml(rep.title_r || 'No title available')}</strong><br>`;
     li += `${this._parseAuthors(rep.author_r)} (${this._escapeHtml(rep.year_r || 'N/A')})<br>`;
     li += `<em>${this._escapeHtml(rep.journal_r || 'No journal')}</em><br>`;
     li += `DOI: <a href="https://doi.org/${this._escapeHtml(rep.doi_r || 'N/A')}">${this._escapeHtml(rep.doi_r || 'N/A')}</a><br>`;
     if (rep.outcome) {
-        li += `Author Reported Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
+      li += `Author Reported Outcome: <strong>${this._escapeHtml(rep.outcome)}</strong><br>`;
     }
     if (rep.doi_r && rep.doi_r.trim().toLowerCase() !== 'na' &&
-        rep.url_r && typeof rep.url_r === 'string' && rep.url_r.trim().toLowerCase() !== 'na' &&
-        rep.url_r.trim().startsWith('https')) {
-        li += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
+      rep.url_r && typeof rep.url_r === 'string' && rep.url_r.trim().toLowerCase() !== 'na' &&
+      rep.url_r.trim().startsWith('https')) {
+      li += `This study has a linked report: <a href="${this._escapeHtml(rep.url_r.trim())}" target="_blank">${this._escapeHtml(rep.url_r.trim())}</a><br>`;
     }
     li += '</li>';
     return li;
@@ -688,10 +688,11 @@ async addReplicationsToFolder(itemID, replications) {
    */
   createReplicationNote(replications) {
     let html = '<h2>Replications Found</h2>';
+    html += '<i>This is an automatically generated note. Do not make changes!</i><br>';
     html += '<p>This study has been replicated:</p>';
     html += '<ul>';
     for (let rep of replications) {
-        html += this._createReplicationLi(rep);
+      html += this._createReplicationLi(rep);
     }
     html += '</ul>';
     html += `

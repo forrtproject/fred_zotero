@@ -148,10 +148,7 @@ var ReplicationCheckerPlugin = {
       message += `• Add detailed note with replication information`;
 
       // Show confirmation dialog
-      const ps = Components.classes["@mozilla.org/embedcomp/prompt-service;1"]
-        .getService(Components.interfaces.nsIPromptService);
-
-      const result = ps.confirm(
+      const result = Services.prompt.confirm(
         win,
         "Replication Studies Found",
         message

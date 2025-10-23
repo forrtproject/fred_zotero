@@ -43,17 +43,17 @@ Then install the generated replication-checker.xpi
 
 ## Usage
 
-### Check Entire Library
+### Check Entire Library or Group Libraries
 
 1. Go to **Tools → Check Library for Replications**
 2. A progress window will show the scan status
 3. Items with replications will be tagged and annotated
 
-This may take some time depending on the size of the library. While the plugin is scanning the library the Check Selected Items option won't work.
+This may take some time depending on the size of the library. While the plugin is scanning the library, the `Check Selected Items` option won't work.
 
-### Check Selected Items
+### Check Selected Items or Collections
 
-1. Select one or more items in your library
+1. Select one or more items in your library or collections
 2. Right-click → **Check for Replications**
 3. Selected items will be checked and tagged if replications are found
 
@@ -83,9 +83,15 @@ When a replication is found:
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
 
-#### What does replication outcome mean?
+### What Does Replication Outcome Mean?
 
 The plugin automatically creates a tag and an entry in the note based on the FReD Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Succesful", "Replication: Failed" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FReD-data/blob/main/cos_report.html).
+
+### What Does it Mean if "The study has a linked report"
+
+Some studies are linked to a separate URL. This happens in two cases:
+- The study does not have a published version, therefore it does not have a DOI but a URL
+- The study is part of a multi-study replication effort. The DOI links to the published study, while the URL links to a replication report in a public repositories (e.g. OSF, Zenodo)
 
 ## Data Source
 

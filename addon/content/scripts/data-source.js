@@ -68,12 +68,13 @@ class APIDataSource extends ReplicationDataSource {
                     entry.meta.replications.forEach(rep => {
                         candidates.push({
                             doi_o: originalDoi,
-                            doi_r: rep.doi,
-                            title_r: rep.title,
-                            author_r: rep.authors.join(", "),
-                            journal_r: '', // Add if available in API
-                            year_r: rep.year,
-                            outcome: rep.outcome,
+                            doi_r: rep.doi_r || 'Not available',
+                            title_r: rep.title_r || 'No title available',
+                            author_r: rep.author_r || 'No authors available',
+                            journal_r: rep.journal_r || 'No journal',
+                            year_r: rep.year_r || null,
+                            outcome: rep.outcome || 'Not available',
+                            url_r: rep.url_r || '',
                             matchedPrefix: prefix,
                             fullData: rep
                         });

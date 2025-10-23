@@ -15,6 +15,6 @@ How to Contribute
 
 Please open issues or pull requests on our repository to propose changes.
 
-Do you have more structured feedback? You can contact us anonymously about the Replication Checker Plug [here](https://tinyurl.com/y5evebv9).
+Do you have more structured feedback? You can contact us anonymously about the Replication Checker Plugin [here](https://tinyurl.com/y5evebv9).
 
 Do you want to get involved with FORTT? [Get in touch](https://forrt.org/about/get-involved/)!

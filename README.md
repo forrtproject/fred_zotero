@@ -78,12 +78,13 @@ This may take some time depending on the size of the library. While the plugin i
 
 When a replication is found:
 - **Tag**: "Has Replication" (easily filter your library)
-- **Note**: Child note with:
+- **Note**:
   - Replication title
   - Authors and year
   - Journal
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
+ *If manual changes are made to the note, it will get duplicated at next run of the Checker.*
 
 ### What Does Replication Outcome Mean?
 

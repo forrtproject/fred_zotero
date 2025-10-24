@@ -53,6 +53,7 @@ jobs:
           content/ \
           locale/ \
           data/ \
+          content/icons/zotero-plugin.png \
           -x "*.DS_Store" \
           -x "*/__pycache__/*"
         cd ..

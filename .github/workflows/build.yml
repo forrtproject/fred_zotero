@@ -26,6 +26,7 @@ jobs:
             content/ \
             locale/ \
             data/ \
+            content/icons/zotero-plugin.png \
             -x "*.DS_Store" \
             -x "*/__pycache__/*"
           cd ..
@@ -43,7 +44,7 @@ jobs:
           
           echo ""
           echo "Critical files check:"
-          unzip -l replication-checker.xpi | grep -E "(bootstrap.js|manifest.json|index.js)"
+          unzip -l replication-checker.xpi | grep -E "(bootstrap.js|manifest.json|index.js|zotero-plugin.png)"
           
           echo ""
           echo "XPI size:"

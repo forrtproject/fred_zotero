@@ -4,10 +4,8 @@
   "version": "0.2.0",
   "description": "Privacy-first plugin to discover replications from FReD (FORRT Replication Database)",
   "author": "FORRT / Rohan Tondlekar",
-  "homepage_url": "https://github.com/forrtproject/fred_zotero",
   "icons": {
-    "48": "content/icons/favicon@0.5x.png",
-    "96": "content/icons/favicon.png"
+    "48": "data/zotero-plugin.png"
   },
   "applications": {
     "zotero": {

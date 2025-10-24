@@ -6,8 +6,7 @@
   "author": "FORRT / Rohan Tondlekar",
   "homepage_url": "https://github.com/forrtproject/fred_zotero",
   "icons": {
-    "48": "content/icons/favicon@0.5x.png",
-    "96": "content/icons/favicon.png"
+    "48": "addon/content/icons/zotero-plugin.png"
   },
   "applications": {
     "zotero": {

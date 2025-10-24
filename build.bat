@@ -28,10 +28,10 @@ REM Clean old build
 echo Cleaning old XPI...
 if exist "replication-checker.xpi" del "replication-checker.xpi"
 
-REM Create XPI from addon/ folder
+REM Create XPI from addon/ folder with explicit inclusion of zotero-plugin.png
 echo Creating XPI from addon/ folder...
 cd addon
-"C:\Program Files\7-Zip\7z.exe" a -r -tzip ../replication-checker.xpi bootstrap.js manifest.json content/* locale/* data/* -x!*.DS_Store -x!*/__pycache__/*
+"C:\Program Files\7-Zip\7z.exe" a -r -tzip ../replication-checker.xpi bootstrap.js manifest.json content/* locale/* data/* addon/content/icons/zotero-plugin.png -x!*.DS_Store -x!*/__pycache__/*
 cd ..
 
 if %ERRORLEVEL% neq 0 (
@@ -50,7 +50,7 @@ echo First 20 files:
 
 echo.
 echo Critical files check:
-"C:\Program Files\7-Zip\7z.exe" l replication-checker.xpi | findstr /R "bootstrap.js\|manifest.json\|index.js"
+"C:\Program Files\7-Zip\7z.exe" l replication-checker.xpi | findstr /R "bootstrap.js\|manifest.json\|index.js\|zotero-plugin.png"
 
 echo.
 echo ========================================

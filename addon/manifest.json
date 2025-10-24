@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Zotero Replication Checker",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Privacy-first plugin to discover replications from FReD (FORRT Replication Database)",
   "author": "FORRT / Rohan Tondlekar",
   "icons": {

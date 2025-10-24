@@ -48,6 +48,7 @@ Then install the generated replication-checker.xpi
 1. Go to **Tools → Check Library for Replications**
 2. A progress window will show the scan status
 3. Items with replications will be tagged and annotated
+4. Replication studies will be added as items in Replication folder in the library
 
 This may take some time depending on the size of the library. While the plugin is scanning the library, the `Check Selected Items` option won't work.
 
@@ -56,6 +57,7 @@ This may take some time depending on the size of the library. While the plugin i
 1. Select one or more items in your library or collections
 2. Right-click → **Check for Replications**
 3. Selected items will be checked and tagged if replications are found
+4. Replication studies will be added as items in Replication folder in the library
 
 ### Check Newly Added Items
 

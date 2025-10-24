@@ -329,7 +329,7 @@ var ReplicationCheckerPlugin = {
 
       const allowedOutcomes = {
         successful: "Replication: Successful",
-        failed: "Replication: Failure",
+        failed: "Replication: Failed",
         mixed: "Replication: Mixed"
       };
       const uniqueOutcomes = new Set(

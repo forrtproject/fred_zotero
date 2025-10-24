@@ -34,7 +34,7 @@ For Windows
 ./build.bat
 ```
 
-For macOS
+For macOS or Linux
 ```bash
 ./build.sh
 ```

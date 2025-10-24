@@ -458,61 +458,101 @@ var ReplicationCheckerPlugin = {
           const search = new Zotero.Search();
           search.libraryID = libraryID;
           search.addCondition('DOI', 'is', doi_r);
-          //search.addCondition('collection', 'is', replicationCollection.id);
           const existingIDs = await search.search();
+
+          let replicationItemID;
+          let replicationItem;
+
           if (existingIDs.length > 0) {
-            Zotero.debug(`Skipping duplicate replication item with DOI: ${doi_r}`);
-            continue;
+            // Take the first existing item if multiple (you may want to handle multiples differently)
+            replicationItemID = existingIDs[0];
+            replicationItem = await Zotero.Items.getAsync(replicationItemID);
+            Zotero.debug(`Found existing replication item with DOI: ${doi_r} (ID: ${replicationItemID})`);
+          } else {
+            try {
+              const newItem = new Zotero.Item('journalArticle');
+              newItem.libraryID = libraryID;
+              newItem.setField('title', rep.title_r || 'Untitled Replication');
+              newItem.setField('publicationTitle', rep.journal_r || '');
+              newItem.setField('volume', rep.volume_r || '');
+              newItem.setField('issue', rep.issue_r || '');
+              newItem.setField('pages', rep.pages_r || '');
+              newItem.setField('date', rep.year_r ? rep.year_r.toString() : '');
+              newItem.setField('DOI', doi_r);
+
+              replicationItemID = await newItem.save();
+              Zotero.debug(`Added new replication item with ID ${replicationItemID} for DOI ${doi_r}`);
+
+              let authors = [];
+              if (rep.author_r) {
+                try {
+                  if (typeof rep.author_r === 'string') {
+                    authors = JSON.parse(rep.author_r);
+                  } else if (Array.isArray(rep.author_r)) {
+                    authors = rep.author_r;
+                  }
+                } catch (e) {
+                  Zotero.debug(`Failed to parse authors for DOI ${doi_r}: ${e.message}`);
+                  authors = [];
+                }
+              }
+
+              if (authors && Array.isArray(authors) && authors.length > 0) {
+                for (let author of authors) {
+                  try {
+                    newItem.addCreator({
+                      creatorType: 'author',
+                      firstName: author.given || '',
+                      lastName: author.family || ''
+                    });
+                  } catch (e) {
+                    Zotero.debug(`Failed to add creator for DOI ${doi_r}: ${e.message}`);
+                  }
+                }
+                await newItem.save();
+              }
+
+              replicationItem = newItem;
+            } catch (error) {
+              Zotero.debug(`Error creating replication item for DOI ${doi_r}: ${error.message}`);
+              continue; // Skip to next if creation fails
+            }
           }
 
-          try {
-            const newItem = new Zotero.Item('journalArticle');
-            newItem.libraryID = libraryID;
-            newItem.setField('title', rep.title_r || 'Untitled Replication');
-            newItem.setField('publicationTitle', rep.journal_r || '');
-            newItem.setField('volume', rep.volume_r || '');
-            newItem.setField('issue', rep.issue_r || '');
-            newItem.setField('pages', rep.pages_r || '');
-            newItem.setField('date', rep.year_r ? rep.year_r.toString() : '');
-            newItem.setField('DOI', doi_r);
-
-            const newItemID = await newItem.save();
-            Zotero.debug(`Added new replication item with ID ${newItemID} for DOI ${doi_r}`);
-
-            let authors = [];
-            if (rep.author_r) {
-              try {
-                if (typeof rep.author_r === 'string') {
-                  authors = JSON.parse(rep.author_r);
-                } else if (Array.isArray(rep.author_r)) {
-                  authors = rep.author_r;
-                }
-              } catch (e) {
-                Zotero.debug(`Failed to parse authors for DOI ${doi_r}: ${e.message}`);
-                authors = [];
-              }
-            }
-
-            if (authors && Array.isArray(authors) && authors.length > 0) {
-              for (let author of authors) {
-                try {
-                  newItem.addCreator({
-                    creatorType: 'author',
-                    firstName: author.given || '',
-                    lastName: author.family || ''
-                  });
-                } catch (e) {
-                  Zotero.debug(`Failed to add creator for DOI ${doi_r}: ${e.message}`);
-                }
-              }
-              await newItem.save();
-            }
-
-            replicationCollection.addItem(newItemID);
+          // Add to collection if not already present
+          if (replicationItemID && !replicationCollection.hasItem(replicationItemID)) {
+            replicationCollection.addItem(replicationItemID);
             await replicationCollection.save();
-            Zotero.debug(`Added replication item ${newItemID} to "Replication folder"`);
-          } catch (error) {
-            Zotero.debug(`Error creating replication item for DOI ${doi_r}: ${error.message}`);
+            Zotero.debug(`Added replication item ${replicationItemID} to "Replication folder"`);
+          } else {
+            Zotero.debug(`Replication item ${replicationItemID} already in "Replication folder"`);
+          }
+
+          // Establish bidirectional relationship
+          const originalItem = await Zotero.Items.getAsync(itemID);
+          replicationItem = replicationItem || await Zotero.Items.getAsync(replicationItemID); // Reload if existing
+          if (originalItem && replicationItem) {
+            const relatedItemsOriginal = originalItem.relatedItems;
+            const relatedItemsNew = replicationItem.relatedItems;
+            let relationsAdded = false;
+
+            if (!relatedItemsOriginal.some(relItem => relItem.id === replicationItemID)) {
+              originalItem.addRelatedItem(replicationItem);
+              await originalItem.save();
+              Zotero.debug(`Added relationship from original item ${itemID} to replication ${replicationItemID}`);
+              relationsAdded = true;
+            }
+
+            if (!relatedItemsNew.some(relItem => relItem.id === itemID)) {
+              replicationItem.addRelatedItem(originalItem);
+              await replicationItem.save();
+              Zotero.debug(`Added relationship from replication ${replicationItemID} to original ${itemID}`);
+              relationsAdded = true;
+            }
+
+            if (!relationsAdded) {
+              Zotero.debug(`Relationships already exist between ${itemID} and ${replicationItemID}`);
+            }
           }
         }
       });

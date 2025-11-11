@@ -39,7 +39,7 @@ class ReplicationDataSource {
 class APIDataSource extends ReplicationDataSource {
     constructor() {
         super();
-        this.apiUrl = "https://5waa6mryb6.execute-api.eu-central-1.amazonaws.com/v1/prefix-lookup";
+        this.apiUrl = "https://rep-api.forrt.org/v1/prefix-lookup";
     }
 
     async initialize() {

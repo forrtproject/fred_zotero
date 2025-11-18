@@ -173,11 +173,11 @@ export class ReplicationCheckerPlugin {
    * Display a canonical alert when the API cannot be reached
    */
   private showApiUnavailableAlert(): void {
-    const win = Zotero.getMainWindow();
-    if (!win) return;
+    const promptWin = this.getPromptWindow();
+    if (!promptWin) return;
 
     Services.prompt.alert(
-      win,
+      promptWin,
       this.getString("replication-checker-error-title"),
       this.getString("replication-checker-error-api")
     );
@@ -204,18 +204,22 @@ export class ReplicationCheckerPlugin {
    * Show a simple information alert with a localized title and message
    */
   private showInfoAlert(messageKey: string, params?: LocaleParams): void {
-    const win = Zotero.getMainWindow();
-    if (!win) return;
+    const promptWin = this.getPromptWindow();
+    if (!promptWin) return;
 
-    Services.prompt.alert(win, this.getString("replication-checker-alert-title"), this.getString(messageKey, params));
+    Services.prompt.alert(
+      promptWin,
+      this.getString("replication-checker-alert-title"),
+      this.getString(messageKey, params)
+    );
   }
 
   /**
    * Show a detailed error alert for contextual operations
    */
   private showOperationError(target: "library" | "selected" | "collection", details: string): void {
-    const win = Zotero.getMainWindow();
-    if (!win) return;
+    const promptWin = this.getPromptWindow();
+    if (!promptWin) return;
 
     const title = this.getString("replication-checker-error-title");
     const targetLabel = this.getString(`replication-checker-target-${target}`);
@@ -224,7 +228,25 @@ export class ReplicationCheckerPlugin {
       details,
     });
 
-    Services.prompt.alert(win, title, message);
+    Services.prompt.alert(promptWin, title, message);
+  }
+
+  /**
+   * Retrieve the main Zotero window cast to the type expected by Services.prompt
+   */
+  private getPromptWindow(): mozIDOMWindowProxy | null {
+    const win = Zotero.getMainWindow();
+    if (!win) {
+      return null;
+    }
+    return win as unknown as mozIDOMWindowProxy;
+  }
+
+  /**
+   * Convenience helper to add a line to the progress window without an icon
+   */
+  private addProgressLine(progressWin: Zotero.ProgressWindow, text: string): void {
+    progressWin.addLines(text, "");
   }
 
   /**
@@ -372,19 +394,20 @@ export class ReplicationCheckerPlugin {
       const progressWin = new Zotero.ProgressWindow();
       progressWin.changeHeadline(this.getString("replication-checker-progress-checking-library"));
       progressWin.show();
-      progressWin.addLines(this.getString("replication-checker-progress-scanning-library"));
+      this.addProgressLine(progressWin, this.getString("replication-checker-progress-scanning-library"));
 
       // Get all DOIs from library
       const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
       const uniqueDois = this.getUniqueDOIs(libraryItems);
 
-      progressWin.addLines(
+      this.addProgressLine(
+        progressWin,
         this.getString("replication-checker-progress-found-dois", {
           itemCount: libraryItems.length,
           uniqueCount: uniqueDois.length,
         })
       );
-      progressWin.addLines(this.getString("replication-checker-progress-checking-database"));
+      this.addProgressLine(progressWin, this.getString("replication-checker-progress-checking-database"));
 
       // Check for replications
       let results: MatchResult[];
@@ -392,7 +415,7 @@ export class ReplicationCheckerPlugin {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
         progressWin.changeHeadline(this.getString("replication-checker-progress-failed"));
-        progressWin.addLines(this.getString("replication-checker-error-api"));
+        this.addProgressLine(progressWin, this.getString("replication-checker-error-api"));
         progressWin.startCloseTimer(4000);
         this.handleMatchError(error, "library");
         return;
@@ -428,7 +451,8 @@ export class ReplicationCheckerPlugin {
 
       // Update progress
       progressWin.changeHeadline(this.getString("replication-checker-progress-complete"));
-      progressWin.addLines(
+      this.addProgressLine(
+        progressWin,
         this.getString("replication-checker-progress-match-count", {
           count: matchCount,
         })
@@ -525,7 +549,7 @@ export class ReplicationCheckerPlugin {
       const progressWin = new Zotero.ProgressWindow();
       progressWin.changeHeadline(this.getString("replication-checker-progress-checking-collection"));
       progressWin.show();
-      progressWin.addLines(this.getString("replication-checker-progress-scanning-collection"));
+      this.addProgressLine(progressWin, this.getString("replication-checker-progress-scanning-collection"));
 
       // Get DOIs from collection
       const selectedItems = await ZoteroIntegration.getDOIsFromCollection(collection.id);
@@ -533,20 +557,21 @@ export class ReplicationCheckerPlugin {
 
       if (!selectedItems || selectedItems.length === 0) {
         progressWin.changeHeadline(this.getString("replication-checker-progress-complete"));
-        progressWin.addLines(this.getString("replication-checker-progress-no-dois"));
+        this.addProgressLine(progressWin, this.getString("replication-checker-progress-no-dois"));
         progressWin.startCloseTimer(3000);
         return;
       }
 
       const uniqueDois = this.getUniqueDOIs(selectedItems);
-      progressWin.addLines(
+      this.addProgressLine(
+        progressWin,
         this.getString("replication-checker-progress-found-dois", {
           itemCount: selectedItems.length,
           uniqueCount: uniqueDois.length,
         })
       );
 
-      progressWin.addLines(this.getString("replication-checker-progress-checking-database"));
+      this.addProgressLine(progressWin, this.getString("replication-checker-progress-checking-database"));
 
       // Check for replications
       let results: MatchResult[];
@@ -554,7 +579,7 @@ export class ReplicationCheckerPlugin {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
         progressWin.changeHeadline(this.getString("replication-checker-progress-failed"));
-        progressWin.addLines(this.getString("replication-checker-error-api"));
+        this.addProgressLine(progressWin, this.getString("replication-checker-error-api"));
         progressWin.startCloseTimer(4000);
         this.handleMatchError(error, "collection");
         return;
@@ -593,7 +618,8 @@ export class ReplicationCheckerPlugin {
 
       // Update progress
       progressWin.changeHeadline(this.getString("replication-checker-progress-complete"));
-      progressWin.addLines(
+      this.addProgressLine(
+        progressWin,
         this.getString("replication-checker-progress-match-count", {
           count: matchCount,
         })
@@ -617,8 +643,8 @@ export class ReplicationCheckerPlugin {
    */
   private async showReplicationDialog(itemID: number, replications: any[]): Promise<void> {
     try {
-      const win = Zotero.getMainWindow();
-      if (!win) return;
+      const promptWin = this.getPromptWindow();
+      if (!promptWin) return;
 
       const item = await Zotero.Items.getAsync(itemID);
       if (!item) return;
@@ -649,11 +675,7 @@ export class ReplicationCheckerPlugin {
       message += this.getString("replication-checker-dialog-question");
 
       // Show confirmation dialog
-      const result = Services.prompt.confirm(
-        win,
-        this.getString("replication-checker-dialog-title"),
-        message
-      );
+      const result = Services.prompt.confirm(promptWin, this.getString("replication-checker-dialog-title"), message);
 
       if (result) {
         // User clicked "OK" - add tag and note
@@ -663,7 +685,8 @@ export class ReplicationCheckerPlugin {
         const progressWin = new Zotero.ProgressWindow();
         progressWin.changeHeadline(this.getString("replication-checker-dialog-progress-title"));
         progressWin.show();
-        progressWin.addLines(
+        this.addProgressLine(
+          progressWin,
           this.getString("replication-checker-dialog-progress-line", {
             title: itemTitle,
           })
@@ -809,7 +832,7 @@ export class ReplicationCheckerPlugin {
 
         if (added) {
           const newHTML = (doc.body as HTMLBodyElement).innerHTML;
-          existingNote.setNote(newHTML);
+          existingNote.setNote(String(newHTML));
           await existingNote.saveTx();
         }
       } else {
@@ -872,8 +895,7 @@ export class ReplicationCheckerPlugin {
           }
 
           // Check for duplicate items with the same DOI already in the library
-          const search = new Zotero.Search();
-          search.libraryID = libraryID;
+          const search = new Zotero.Search({ libraryID });
           search.addCondition("DOI", "is", doi_r);
           const existingIDs = await search.search();
 
@@ -929,7 +951,7 @@ export class ReplicationCheckerPlugin {
           try {
             // Create new item
             const newItem = new Zotero.Item("journalArticle");
-            newItem.libraryID = libraryID;
+            (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
             newItem.setField("title", rep.title_r || "Untitled Replication");
             newItem.setField("publicationTitle", rep.journal_r || "");
             newItem.setField("volume", rep.volume_r || "");
@@ -938,7 +960,7 @@ export class ReplicationCheckerPlugin {
             newItem.setField("date", rep.year_r ? rep.year_r.toString() : "");
             newItem.setField("DOI", doi_r);
 
-            const newItemID = await newItem.save();
+            const newItemID = (await newItem.save()) as number;
             Zotero.debug(`Added new replication item with ID ${newItemID} for DOI ${doi_r}`);
 
             // Add bidirectional "related items" link between original and replication
@@ -1121,8 +1143,8 @@ export class ReplicationCheckerPlugin {
     isSelected = false,
     isCollection = false
   ): void {
-    const win = Zotero.getMainWindow();
-    if (!win) return;
+    const promptWin = this.getPromptWindow();
+    if (!promptWin) return;
 
     const titleKey = isCollection
       ? "replication-checker-results-title-collection"
@@ -1141,7 +1163,7 @@ export class ReplicationCheckerPlugin {
     message += `${this.getString(matchKey, { count: matchCount })}\n`;
     message += this.getString("replication-checker-results-footer");
 
-    Services.prompt.alert(win, this.getString("replication-checker-alert-title"), message);
+    Services.prompt.alert(promptWin, this.getString("replication-checker-alert-title"), message);
   }
 
   /**

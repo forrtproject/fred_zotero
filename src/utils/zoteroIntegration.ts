@@ -14,8 +14,7 @@ export async function getAllDOIsFromLibrary(): Promise<ZoteroItemData[]> {
   const libraryID = Zotero.getActiveZoteroPane().getSelectedLibraryID();
   const items: ZoteroItemData[] = [];
 
-  const search = new Zotero.Search();
-  search.libraryID = libraryID;
+  const search = new Zotero.Search({ libraryID });
   search.addCondition("itemType", "isNot", "attachment");
   search.addCondition("itemType", "isNot", "note");
   const itemIDs = await search.search();
@@ -89,8 +88,7 @@ export async function getDOIsFromCollection(collectionID: number): Promise<Zoter
     const col = Zotero.Collections.get(colID);
     if (!col) return;
 
-    const search = new Zotero.Search();
-    search.libraryID = libraryID;
+    const search = new Zotero.Search({ libraryID });
     search.addCondition("collection", "is", col.key);
     search.addCondition("itemType", "isNot", "attachment");
     search.addCondition("itemType", "isNot", "note");
@@ -170,7 +168,7 @@ export async function addNote(itemID: number, noteHTML: string): Promise<void> {
   if (!parentItem) throw new Error(`Item ${itemID} not found`);
 
   const note = new Zotero.Item("note");
-  note.libraryID = parentItem.libraryID;
+  (note as Zotero.Item & { libraryID: number }).libraryID = parentItem.libraryID;
   note.parentID = itemID;
   note.setNote(noteHTML);
   await note.saveTx();

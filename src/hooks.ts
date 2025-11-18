@@ -6,7 +6,7 @@
 import { replicationChecker } from "./modules/replicationChecker";
 import { config } from "../package.json";
 import { createZToolkit } from "./utils/ztoolkit";
-import { localizationManager } from "./utils/localization";
+import { getString } from "./utils/strings";
 
 const ztoolkit = createZToolkit();
 
@@ -20,14 +20,8 @@ export async function onStartup() {
   Zotero.debug("[ReplicationChecker] Starting up...");
 
   try {
-    // Initialize localization
-    const rootURI = `chrome://${config.addonRef}/content/`;
-    const localeFileUri = `chrome://${config.addonRef}/locale/en-US/replicationChecker-replication-checker.ftl`;
-    await localizationManager.loadLocalization(localeFileUri);
-    localizationManager.initializeStringOverride();
-    Zotero.debug("[ReplicationChecker] Localization initialized");
-
     // Initialize the replication checker plugin
+    const rootURI = `chrome://${config.addonRef}/content/`;
     await replicationChecker.init(rootURI);
 
     // Register preference pane
@@ -69,7 +63,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("menuTools", {
       tag: "menuitem",
       id: "replication-checker-tools-menu",
-      label: Zotero.getString("replicationChecker-replication-checker-tools-menu"),
+      label: getString("replication-checker-tools-menu"),
       commandListener: () => {
         replicationChecker.checkEntireLibrary();
       },
@@ -80,7 +74,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("item", {
       tag: "menuitem",
       id: "replication-checker-item-menu",
-      label: Zotero.getString("replicationChecker-replication-checker-context-menu"),
+      label: getString("replication-checker-context-menu"),
       commandListener: () => {
         replicationChecker.checkSelectedItems();
       },
@@ -91,7 +85,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("collection", {
       tag: "menuitem",
       id: "replication-checker-collection-menu",
-      label: Zotero.getString("replicationChecker-replication-checker-context-menu"),
+      label: getString("replication-checker-context-menu"),
       commandListener: () => {
         replicationChecker.checkSelectedCollection();
       },

@@ -62,7 +62,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("menuTools", {
       tag: "menuitem",
       id: "replication-checker-tools-menu",
-      label: "Check Library for Replications",
+      label: "Check Current Library for Replications",
       commandListener: () => {
         replicationChecker.checkEntireLibrary();
       },

@@ -43,13 +43,13 @@ Then install the generated replication-checker.xpi
 
 ## Usage
 
-### Check Entire Library or Group Libraries
+### Check Current Library or Group Libraries
 
-1. Go to **Tools → Check Library for Replications**
+1. Go to **Tools → Check Current Library for Replications**
 2. A progress window will show the scan status
 3. Items with replications will be tagged and annotated
 
-This may take some time depending on the size of the library. While the plugin is scanning the library, the `Check Selected Items` option won't work.
+The command scans whichever library is currently selected in Zotero (personal, group, etc.).
 
 ### Check Selected Items or Collections
 
@@ -59,7 +59,14 @@ This may take some time depending on the size of the library. While the plugin i
 
 ### Check Newly Added Items
 
-- The plugin automatically checks newly added items to your Library or sub-folders
+- The plugin automatically checks newly added items. You can turn this off from the Replication Checker preferences panel if you prefer to run all scans manually.
+
+### Preferences
+
+Open **Zotero → Preferences → Advanced → Replication Checker** to configure:
+
+- **Auto-check frequency**: Run a library-wide scan daily, weekly, monthly, or keep it disabled.
+- **Automatically check newly added items**: Toggle whether items are scanned right after they appear in your library.
 
 ## How It Works
 
@@ -83,9 +90,11 @@ When a replication is found:
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
 
+> **Note:** The replication note is automatically maintained by the plugin. Manual edits may be overwritten the next time the item is checked.
+
 ### What Does Replication Outcome Mean?
 
-The plugin automatically creates a tag and an entry in the note based on the FReD Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Succesful", "Replication: Failed" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FReD-data/blob/main/cos_report.html).
+The plugin automatically creates a tag and an entry in the note based on the FReD Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Successful", "Replication: Failure" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FReD-data/blob/main/cos_report.html).
 
 ### What Does it Mean if "The study has a linked report"
 
@@ -103,24 +112,22 @@ Currently uses a live API endpoint (https://rep-api.forrt.org/v1/prefix-lookup) 
 
 ```
 fred_zotero/
-├── manifest.json                 # Plugin metadata
-├── chrome.manifest              # Register UI overlays
-├── chrome/
-│   └── content/
-│       ├── overlay.xhtml        # UI additions (menu items)
-│       ├── data-source.js   # Data source abstraction
-│       ├── batch-matcher.js # Core matching logic
-│       ├── bootstrap.js     # Plugin lifecycle
-│       ├── zotero-integration.js  # Zotero API wrapper
-│       ├── replication-checker.js # Main plugin logic
-│       └── scripts/
-│           └── crypto-js.min.js      # MD5 hashing
-│           
-├── locale/
-│   └── en-US/
-│       └── overlay.dtd          # UI strings
-└── data/
-    └── fred_mini.csv            # Replication database 
+├── addon/                       # Compiled assets packaged into the XPI
+│   ├── bootstrap.js             # Bootstrap entry point
+│   ├── content/
+│   │   ├── icons/               # Extension icons
+│   │   └── preferences.xhtml    # Preferences UI
+│   ├── manifest.json            # Runtime manifest template
+│   └── prefs.js                 # Default preference values
+├── src/                         # TypeScript source
+│   ├── modules/                 # Core business logic (data source, matcher, replication checker)
+│   ├── utils/                   # Zotero helpers
+│   ├── addon.ts                 # Addon class
+│   ├── hooks.ts                 # Lifecycle hooks
+│   └── index.ts                 # Entry point registered by bootstrap.js
+├── locale/                      # Fluent strings (to be consumed next)
+├── package.json                 # Build tooling configuration
+└── zotero-plugin.config.ts      # zotero-plugin-scaffold build config
 ```
 
 ### Key Components
@@ -130,7 +137,7 @@ fred_zotero/
 Enable Zotero debug output:
 1. **Help → Debug Output Logging** → Enable
 2. **Help → Show Debug Output**
-3. Look for console.log messages from the plugin
+3. Look for `[ReplicationChecker]`, `[BatchMatcher]`, and related `Zotero.debug` entries from the plugin
 
 ## Testing
 

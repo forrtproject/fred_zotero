@@ -8,6 +8,9 @@ import { BatchMatcher } from "./batchMatcher";
 import * as ZoteroIntegration from "../utils/zoteroIntegration";
 import type { ZoteroItemData } from "../types/replication";
 
+const AUTO_CHECK_PREF = "extensions.zotero.replication-checker.autoCheckFrequency";
+const NEW_ITEM_PREF = "extensions.zotero.replication-checker.autoCheckNewItems";
+
 interface MatchResult {
   doi: string;
   replications: any[];
@@ -22,7 +25,7 @@ export class ReplicationCheckerPlugin {
   private rootURI: string = "";
   private notifierID: string | null = null;
   private autoCheckTimer: number | null = null;
-  private lastAutoCheckTime: number = 0;
+  private prefObserverSymbols: symbol[] = [];
 
   /**
    * Initialize the plugin
@@ -43,6 +46,9 @@ export class ReplicationCheckerPlugin {
 
       // Register notifier to watch for new items
       this.registerNotifier();
+
+      // Watch preference changes
+      this.registerPreferenceObservers();
 
       // Start auto-check timer if enabled
       this.startAutoCheck();
@@ -66,8 +72,16 @@ export class ReplicationCheckerPlugin {
         extraData?: any
       ): Promise<void> => {
         if (event === "add" && type === "item") {
+          if (!this.shouldCheckNewItems()) {
+            Zotero.debug("ReplicationChecker: Skipping new-item auto-check (preference disabled)");
+            return;
+          }
           // Small delay to ensure item is fully saved
           setTimeout(() => {
+            if (!this.shouldCheckNewItems()) {
+              Zotero.debug("ReplicationChecker: New-item auto-check disabled before execution");
+              return;
+            }
             this.checkNewItems(ids as number[]);
           }, 2000);
         }
@@ -79,12 +93,103 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
+   * Register observers for preference changes
+   */
+  private registerPreferenceObservers(): void {
+    this.unregisterPreferenceObservers();
+
+    try {
+      const symbol = Zotero.Prefs.registerObserver(AUTO_CHECK_PREF, () => {
+        Zotero.debug("ReplicationChecker: Auto-check preference changed; restarting timer");
+        this.restartAutoCheckTimer();
+      });
+      this.prefObserverSymbols.push(symbol);
+    } catch (error) {
+      Zotero.logError(
+        new Error(
+          `Failed to register auto-check preference observer: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      );
+    }
+  }
+
+  /**
+   * Remove any registered preference observers
+   */
+  private unregisterPreferenceObservers(): void {
+    for (const symbol of this.prefObserverSymbols) {
+      try {
+        Zotero.Prefs.unregisterObserver(symbol);
+      } catch (error) {
+        Zotero.debug(
+          `ReplicationChecker: Failed to unregister preference observer: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
+    this.prefObserverSymbols = [];
+  }
+
+  /**
+   * Restart the auto-check timer when preferences change
+   */
+  private restartAutoCheckTimer(): void {
+    this.stopAutoCheck();
+    this.startAutoCheck();
+  }
+
+  /**
+   * Determine if new items should be auto-checked
+   */
+  private shouldCheckNewItems(): boolean {
+    try {
+      const prefValue = Zotero.Prefs.get(NEW_ITEM_PREF);
+      if (typeof prefValue === "boolean") {
+        return prefValue;
+      }
+      return true;
+    } catch (error) {
+      Zotero.debug(`ReplicationChecker: Failed to read new-item preference: ${error}`);
+      return true;
+    }
+  }
+
+  /**
+   * Handle errors returned from the replication API
+   */
+  private handleMatchError(error: unknown, context: "library" | "selected" | "collection"): void {
+    const message = error instanceof Error ? error.message : String(error);
+    Zotero.logError(new Error(`ReplicationChecker: API error during ${context} check: ${message}`));
+    this.showApiUnavailableAlert();
+  }
+
+  /**
+   * Display a canonical alert when the API cannot be reached
+   */
+  private showApiUnavailableAlert(): void {
+    const win = Zotero.getMainWindow();
+    if (!win) return;
+
+    Services.prompt.alert(
+      win,
+      "Replication Checker - Error",
+      "Could not retrieve data from API - check your internet connection or retry again later."
+    );
+  }
+
+  /**
    * Get auto-check frequency from preferences
    */
   private getAutoCheckFrequency(): string {
     try {
-      const frequency = Zotero.Prefs.get("extensions.zotero.replication-checker.autoCheckFrequency") || "disabled";
-      return frequency as string;
+      const prefValue = Zotero.Prefs.get(AUTO_CHECK_PREF);
+      if (typeof prefValue === "string" && prefValue.length > 0) {
+        return prefValue;
+      }
+      return "disabled";
     } catch (error) {
       Zotero.debug(`Failed to get auto-check frequency preference: ${error}`);
       return "disabled";
@@ -109,29 +214,25 @@ export class ReplicationCheckerPlugin {
    * Start auto-check timer based on preferences
    */
   private startAutoCheck(): void {
+    this.stopAutoCheck();
     const interval = this.getAutoCheckInterval();
     if (interval === 0) {
       Zotero.debug("ReplicationChecker: Auto-check is disabled");
       return;
     }
 
-    // Check immediately on startup
-    setTimeout(() => {
+    const runAutoCheck = () => {
+      Zotero.debug(
+        `ReplicationChecker: Running auto-check (interval: ${this.getAutoCheckFrequency()})`
+      );
       this.checkEntireLibrary();
-      this.lastAutoCheckTime = Date.now();
-    }, 5000); // Wait 5 seconds for plugin to fully initialize
+    };
+
+    // Check immediately on startup
+    setTimeout(runAutoCheck, 5000); // Wait 5 seconds for plugin to fully initialize
 
     // Set up recurring check
-    this.autoCheckTimer = setInterval(
-      () => {
-        Zotero.debug(
-          `ReplicationChecker: Running auto-check (interval: ${this.getAutoCheckFrequency()})`
-        );
-        this.checkEntireLibrary();
-        this.lastAutoCheckTime = Date.now();
-      },
-      interval
-    ) as unknown as number;
+    this.autoCheckTimer = setInterval(runAutoCheck, interval) as unknown as number;
 
     Zotero.debug(
       `ReplicationChecker: Auto-check timer started (interval: ${this.getAutoCheckFrequency()})`
@@ -155,6 +256,11 @@ export class ReplicationCheckerPlugin {
    */
   async checkNewItems(itemIDs: number[]): Promise<void> {
     try {
+      if (!this.shouldCheckNewItems()) {
+        Zotero.debug("ReplicationChecker: Received new items but auto-check is disabled");
+        return;
+      }
+
       const itemsToCheck: ZoteroItemData[] = [];
 
       for (const itemID of itemIDs) {
@@ -229,7 +335,16 @@ export class ReplicationCheckerPlugin {
       progressWin.addLines("Checking against replication database...");
 
       // Check for replications
-      const results = await this.matcher.checkBatch(uniqueDois);
+      let results: MatchResult[];
+      try {
+        results = await this.matcher.checkBatch(uniqueDois);
+      } catch (error) {
+        progressWin.changeHeadline("Check Failed");
+        progressWin.addLines("Could not retrieve data from API - check your internet connection or retry again later.");
+        progressWin.startCloseTimer(4000);
+        this.handleMatchError(error, "library");
+        return;
+      }
 
       // Process results
       const processedItems = new Set<number>();
@@ -274,7 +389,7 @@ export class ReplicationCheckerPlugin {
         Services.prompt.alert(
           win,
           "Replication Checker - Error",
-          `Failed to check library for replications:\n\n${errorMsg}\n\nPlease check your internet connection and try again.`
+          `Failed to check library for replications:\n\n${errorMsg}\n\nCould not retrieve data from API - check your internet connection or retry again later.`
         );
       }
     }
@@ -300,7 +415,13 @@ export class ReplicationCheckerPlugin {
       }
 
       // Check for replications
-      const results = await this.matcher.checkBatch(uniqueDois);
+      let results: MatchResult[];
+      try {
+        results = await this.matcher.checkBatch(uniqueDois);
+      } catch (error) {
+        this.handleMatchError(error, "selected");
+        return;
+      }
 
       // Process results
       const processedItems = new Set<number>();
@@ -342,7 +463,7 @@ export class ReplicationCheckerPlugin {
         Services.prompt.alert(
           win,
           "Replication Checker - Error",
-          `Failed to check selected items for replications:\n\n${errorMsg}\n\nPlease check your internet connection and try again.`
+          `Failed to check selected items for replications:\n\n${errorMsg}\n\nCould not retrieve data from API - check your internet connection or retry again later.`
         );
       }
     }
@@ -359,7 +480,11 @@ export class ReplicationCheckerPlugin {
       if (!collection) {
         const win = Zotero.getMainWindow();
         if (win) {
-          win.alert("No Collection Selected", "Please select a collection first");
+          Services.prompt.alert(
+            win,
+            "Zotero Replication Checker",
+            "Please select a collection before running this check."
+          );
         }
         return;
       }
@@ -387,7 +512,16 @@ export class ReplicationCheckerPlugin {
       progressWin.addLines("Checking against replication database...");
 
       // Check for replications
-      const results = await this.matcher.checkBatch(uniqueDois);
+      let results: MatchResult[];
+      try {
+        results = await this.matcher.checkBatch(uniqueDois);
+      } catch (error) {
+        progressWin.changeHeadline("Check Failed");
+        progressWin.addLines("Could not retrieve data from API - check your internet connection or retry again later.");
+        progressWin.startCloseTimer(4000);
+        this.handleMatchError(error, "collection");
+        return;
+      }
 
       // Process results
       const processedItems = new Set<number>();
@@ -438,7 +572,7 @@ export class ReplicationCheckerPlugin {
         Services.prompt.alert(
           win,
           "Replication Checker - Error",
-          `Failed to check collection for replications:\n\n${errorMsg}\n\nPlease check your internet connection and try again.`
+          `Failed to check collection for replications:\n\n${errorMsg}\n\nCould not retrieve data from API - check your internet connection or retry again later.`
         );
       }
     }
@@ -962,6 +1096,9 @@ export class ReplicationCheckerPlugin {
   shutdown(): void {
     // Stop auto-check timer
     this.stopAutoCheck();
+
+    // Remove preference observers
+    this.unregisterPreferenceObservers();
 
     // Unregister notifier
     if (this.notifierID) {

@@ -124,8 +124,10 @@ export class APIDataSource extends ReplicationDataSource {
       Zotero.debug(`[APIDataSource] Total candidates extracted: ${candidates.length}`);
       return candidates;
     } catch (error) {
-      Zotero.logError(new Error(`API query failed: ${error instanceof Error ? error.message : String(error)}`));
-      return [];
+      const message = error instanceof Error ? error.message : String(error);
+      const wrappedError = new Error(`API query failed: ${message}`);
+      Zotero.logError(wrappedError);
+      throw wrappedError;
     }
   }
 }

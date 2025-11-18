@@ -5,6 +5,9 @@
 
 import { replicationChecker } from "./modules/replicationChecker";
 import { config } from "../package.json";
+import { createZToolkit } from "./utils/ztoolkit";
+
+const ztoolkit = createZToolkit();
 
 export async function onStartup() {
   await Promise.all([
@@ -51,45 +54,42 @@ export async function onStartup() {
   }
 }
 
-export async function onMainWindowLoad(win: Window) {
+export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
   Zotero.debug("[ReplicationChecker] Loading main window");
 
   try {
-    // Create Tools menu item
-    const toolsMenu = win.document.getElementById("menu_ToolsPopup");
-    if (toolsMenu) {
-      const toolsMenuItem = win.document.createXULElement("menuitem");
-      toolsMenuItem.id = "replication-checker-tools-menu";
-      toolsMenuItem.setAttribute("label", "Check Library for Replications");
-      toolsMenuItem.addEventListener("command", () => {
+    // Register Tools menu item
+    ztoolkit.Menu.register("menuTools", {
+      tag: "menuitem",
+      id: "replication-checker-tools-menu",
+      label: "Check Library for Replications",
+      commandListener: () => {
         replicationChecker.checkEntireLibrary();
-      });
-      toolsMenu.appendChild(toolsMenuItem);
-    }
+      },
+    });
+    Zotero.debug("[ReplicationChecker] Added Tools menu item");
 
-    // Create Item context menu item
-    const itemPopup = win.document.getElementById("zotero-itemmenu-popup");
-    if (itemPopup) {
-      const itemMenuItem = win.document.createXULElement("menuitem");
-      itemMenuItem.id = "replication-checker-item-menu";
-      itemMenuItem.setAttribute("label", "Check for Replications");
-      itemMenuItem.addEventListener("command", () => {
+    // Register Item context menu item
+    ztoolkit.Menu.register("item", {
+      tag: "menuitem",
+      id: "replication-checker-item-menu",
+      label: "Check for Replications",
+      commandListener: () => {
         replicationChecker.checkSelectedItems();
-      });
-      itemPopup.appendChild(itemMenuItem);
-    }
+      },
+    });
+    Zotero.debug("[ReplicationChecker] Added Item context menu item");
 
-    // Create Collection context menu item
-    const collectionPopup = win.document.getElementById("zotero-collectionmenu-popup");
-    if (collectionPopup) {
-      const collMenuItem = win.document.createXULElement("menuitem");
-      collMenuItem.id = "replication-checker-collection-menu";
-      collMenuItem.setAttribute("label", "Check for Replications");
-      collMenuItem.addEventListener("command", () => {
+    // Register Collection context menu item
+    ztoolkit.Menu.register("collection", {
+      tag: "menuitem",
+      id: "replication-checker-collection-menu",
+      label: "Check for Replications",
+      commandListener: () => {
         replicationChecker.checkSelectedCollection();
-      });
-      collectionPopup.appendChild(collMenuItem);
-    }
+      },
+    });
+    Zotero.debug("[ReplicationChecker] Added Collection context menu item");
 
     Zotero.debug("[ReplicationChecker] Main window UI setup complete");
   } catch (error) {

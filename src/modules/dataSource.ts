@@ -3,7 +3,7 @@
  * Handles API communication for batch DOI queries
  */
 
-import type { PrefixLookupRequest, PrefixLookupResponse, ReplicationMatch } from "../types/replication";
+import type { PrefixLookupRequest } from "../types/replication";
 
 /**
  * Represents a replication candidate from the API
@@ -41,7 +41,7 @@ export class APIDataSource extends ReplicationDataSource {
 
   constructor() {
     super();
-    this.apiUrl = "https://ouj1xoiypb.execute-api.eu-central-1.amazonaws.com/v1/prefix-lookup";
+    this.apiUrl = "https://rep-api.forrt.org/v1/prefix-lookup";
   }
 
   async initialize(): Promise<void> {
@@ -54,32 +54,55 @@ export class APIDataSource extends ReplicationDataSource {
    * @returns Array of replication candidates
    */
   async queryByPrefixes(prefixes: string[]): Promise<ReplicationCandidate[]> {
-    Zotero.debug(`Querying API with ${prefixes.length} prefixes`);
+    Zotero.debug(`[APIDataSource] Querying API with ${prefixes.length} prefixes: ${prefixes.join(", ")}`);
+    Zotero.debug(`[APIDataSource] API Endpoint: ${this.apiUrl}`);
 
     try {
-      const response = await Zotero.HTTP.request("POST", this.apiUrl, {
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prefixes: prefixes } as PrefixLookupRequest),
-      });
+      let response;
+      try {
+        const requestBody = { prefixes: prefixes } as PrefixLookupRequest;
+        Zotero.debug(`[APIDataSource] Sending request with prefixes: ${JSON.stringify(requestBody)}`);
 
-      if (response.status !== 200) {
-        throw new Error(`API returned status ${response.status}`);
+        response = await Zotero.HTTP.request("POST", this.apiUrl, {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+      } catch (httpError) {
+        const errorMsg = httpError instanceof Error ? httpError.message : String(httpError);
+        Zotero.debug(`[APIDataSource] HTTP Request error: ${errorMsg}`);
+        throw new Error(`Failed to reach replication API: ${errorMsg}`);
       }
 
-      const data: PrefixLookupResponse = JSON.parse(response.response);
+      if (response.status !== 200) {
+        throw new Error(`API returned status ${response.status}: ${response.responseText || "unknown error"}`);
+      }
+
+      Zotero.debug(`[APIDataSource] API Response status: ${response.status}`);
+      const responseData = JSON.parse(response.response);
+      Zotero.debug(`[APIDataSource] Raw response object keys: ${Object.keys(responseData).join(", ")}`);
+
       const candidates: ReplicationCandidate[] = [];
+
+      // Extract the results object from API response
+      const data = responseData.results || responseData;
+      Zotero.debug(`[APIDataSource] Data object has prefixes: ${Object.keys(data).join(", ")}`);
 
       // Flatten API response into candidates
       for (const prefix in data) {
         if (data.hasOwnProperty(prefix)) {
-          const results = data[prefix] || [];
-          for (const entry of results) {
-            const originalDoi = entry.doi_o || entry.meta?.original_doi;
-            const replications = entry.replications || [];
+          const prefixResults = Array.isArray(data[prefix]) ? data[prefix] : [];
+          Zotero.debug(`[APIDataSource] Prefix '${prefix}': ${prefixResults.length} entries`);
+
+          for (const entry of prefixResults) {
+            // API returns replications inside meta.replications
+            const originalDoi = entry.meta?.original_doi || entry.meta?.doi_o || entry.doi_o || "";
+            const replications = Array.isArray(entry.meta?.replications) ? entry.meta.replications : [];
+
+            Zotero.debug(`[APIDataSource] Entry DOI_O: ${originalDoi}, Replications count: ${replications.length}`);
 
             for (const rep of replications) {
               candidates.push({
-                doi_o: originalDoi,
+                doi_o: rep.doi_o || originalDoi || "Not available",
                 doi_r: rep.doi_r || "Not available",
                 title_r: rep.title_r || "No title available",
                 author_r: rep.author_r || "No authors available",
@@ -98,10 +121,10 @@ export class APIDataSource extends ReplicationDataSource {
         }
       }
 
-      Zotero.debug(`Received ${candidates.length} candidates from API`);
+      Zotero.debug(`[APIDataSource] Total candidates extracted: ${candidates.length}`);
       return candidates;
     } catch (error) {
-      Zotero.logError(`API query failed: ${error instanceof Error ? error.message : String(error)}`);
+      Zotero.logError(new Error(`API query failed: ${error instanceof Error ? error.message : String(error)}`));
       return [];
     }
   }

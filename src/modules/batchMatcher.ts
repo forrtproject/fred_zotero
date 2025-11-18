@@ -49,25 +49,36 @@ export class BatchMatcher {
    * @returns Array of match results
    */
   async checkBatch(dois: string[]): Promise<MatchResult[]> {
-    Zotero.debug(`Checking ${dois.length} DOIs...`);
+    Zotero.debug(`[BatchMatcher] Checking ${dois.length} DOIs...`);
+    Zotero.debug(`[BatchMatcher] Input DOIs: ${dois.slice(0, 5).join(", ")}${dois.length > 5 ? "..." : ""}`);
 
     // Normalize and filter DOIs
     const normalizedDois = dois
       .map((doi) => this.normalizeDoi(doi))
       .filter((doi) => doi !== null) as string[];
 
-    Zotero.debug(`Normalized to ${normalizedDois.length} valid DOIs`);
+    Zotero.debug(`[BatchMatcher] Normalized to ${normalizedDois.length} valid DOIs`);
+    if (normalizedDois.length > 0) {
+      Zotero.debug(`[BatchMatcher] First few normalized: ${normalizedDois.slice(0, 3).join(", ")}`);
+    }
 
     // Create DOI to prefix map
     const doiToPrefixMap: DoiPrefixMap = {};
     normalizedDois.forEach((doi) => {
-      doiToPrefixMap[doi] = this.generatePrefix(doi);
+      const prefix = this.generatePrefix(doi);
+      doiToPrefixMap[doi] = prefix;
+      if (normalizedDois.indexOf(doi) < 3) {
+        Zotero.debug(`[BatchMatcher] DOI: ${doi} -> Prefix: ${prefix}`);
+      }
     });
 
-    Zotero.debug(`Generated ${Object.keys(doiToPrefixMap).length} unique DOIs with prefixes`);
+    Zotero.debug(`[BatchMatcher] Generated ${Object.keys(doiToPrefixMap).length} unique DOIs with prefixes`);
 
     // Get unique prefixes
     const uniquePrefixes = Array.from(new Set(Object.values(doiToPrefixMap)));
+    Zotero.debug(`[BatchMatcher] Unique prefixes count: ${uniquePrefixes.length}`);
+    Zotero.debug(`[BatchMatcher] Unique prefixes: ${uniquePrefixes.join(", ")}`);
+
     let candidates: Candidate[] = [];
 
     // Query in batches
@@ -75,20 +86,31 @@ export class BatchMatcher {
     for (let i = 0; i < uniquePrefixes.length; i += this.BATCH_SIZE) {
       const batchPrefixes = uniquePrefixes.slice(i, i + this.BATCH_SIZE);
       Zotero.debug(
-        `Querying batch ${Math.floor(i / this.BATCH_SIZE) + 1} with ${batchPrefixes.length} prefixes`
+        `[BatchMatcher] Querying batch ${Math.floor(i / this.BATCH_SIZE) + 1} with ${batchPrefixes.length} prefixes: ${batchPrefixes.join(", ")}`
       );
       const batchCandidates = await this.dataSource.queryByPrefixes(batchPrefixes);
+      Zotero.debug(`[BatchMatcher] Batch returned ${batchCandidates.length} candidates`);
       candidates = candidates.concat(batchCandidates);
     }
     const queryTime = Date.now() - startTime;
 
-    Zotero.debug(`Received ${candidates.length} candidates from data source in ${queryTime}ms`);
+    Zotero.debug(`[BatchMatcher] Received ${candidates.length} total candidates from data source in ${queryTime}ms`);
+    if (candidates.length > 0) {
+      Zotero.debug(`[BatchMatcher] First candidate DOI_O: ${candidates[0].doi_o}, DOI_R: ${candidates[0].doi_r}`);
+    }
 
     // Verify matches locally (privacy-preserving step)
     const results = this.verifyMatches(normalizedDois, doiToPrefixMap, candidates);
 
     const matchCount = results.filter((r) => r.replications.length > 0).length;
-    Zotero.debug(`Found ${matchCount} DOIs with replications`);
+    Zotero.debug(`[BatchMatcher] Found ${matchCount} DOIs with replications out of ${results.length} checked`);
+
+    // Log details of matches found
+    for (const result of results) {
+      if (result.replications.length > 0) {
+        Zotero.debug(`[BatchMatcher] Match: ${result.doi} -> ${result.replications.length} replications`);
+      }
+    }
 
     return results;
   }
@@ -108,17 +130,38 @@ export class BatchMatcher {
   ): MatchResult[] {
     const results: MatchResult[] = [];
 
+    Zotero.debug(`[BatchMatcher] Starting verifyMatches: ${ourDois.length} DOIs, ${candidates.length} candidates`);
+
     // For each of our DOIs
     for (const doi of ourDois) {
       const ourPrefix = doiToPrefixMap[doi];
       const normalizedOurDoi = this.normalizeDoi(doi);
 
+      if (ourDois.indexOf(doi) < 3) {
+        Zotero.debug(`[BatchMatcher] Verifying DOI: ${doi} (normalized: ${normalizedOurDoi}, prefix: ${ourPrefix})`);
+      }
+
       // Find candidates with matching prefix AND exact DOI match
       const matchingCandidates = candidates.filter(
-        (candidate) =>
-          candidate.matchedPrefix === ourPrefix &&
-          this.normalizeDoi(candidate.doi_o) === normalizedOurDoi
+        (candidate) => {
+          const candidateNormalizedDoi = this.normalizeDoi(candidate.doi_o);
+          const prefixMatch = candidate.matchedPrefix === ourPrefix;
+          const doiMatch = candidateNormalizedDoi === normalizedOurDoi;
+
+          if (ourDois.indexOf(doi) < 3 && candidate === candidates[0]) {
+            Zotero.debug(
+              `[BatchMatcher] Candidate check: prefix ${candidate.matchedPrefix} vs ${ourPrefix} (${prefixMatch}), ` +
+              `doi ${candidateNormalizedDoi} vs ${normalizedOurDoi} (${doiMatch})`
+            );
+          }
+
+          return prefixMatch && doiMatch;
+        }
       );
+
+      if (ourDois.indexOf(doi) < 3) {
+        Zotero.debug(`[BatchMatcher] Found ${matchingCandidates.length} matching candidates for ${doi}`);
+      }
 
       // Assign matching candidates as replications
       const replications = matchingCandidates.map((candidate) => ({
@@ -131,6 +174,8 @@ export class BatchMatcher {
         replications: replications,
       });
     }
+
+    Zotero.debug(`[BatchMatcher] verifyMatches complete: ${results.filter(r => r.replications.length > 0).length} matches found`);
 
     return results;
   }

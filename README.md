@@ -95,7 +95,7 @@ Some studies are linked to a separate URL. This happens in two cases:
 
 ## Data Source
 
-Currently uses a live API endpoint (https://ouj1xoiypb.execute-api.eu-central-1.amazonaws.com/v1/prefix-lookup) to query the FORRT Replication Database (FReD) for up-to-date replication studies. The API returns candidates based on 3-character MD5 hash prefixes, ensuring privacy by not requiring full DOIs.
+Currently uses a live API endpoint (https://rep-api.forrt.org/v1/prefix-lookup) to query the FORRT Replication Database (FReD) for up-to-date replication studies. The API returns candidates based on 3-character MD5 hash prefixes, ensuring privacy by not requiring full DOIs.
 
 ## Development
 

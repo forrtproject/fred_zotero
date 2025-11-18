@@ -21,6 +21,8 @@ export class ReplicationCheckerPlugin {
   private matcher: BatchMatcher | null = null;
   private rootURI: string = "";
   private notifierID: string | null = null;
+  private autoCheckTimer: number | null = null;
+  private lastAutoCheckTime: number = 0;
 
   /**
    * Initialize the plugin
@@ -42,9 +44,12 @@ export class ReplicationCheckerPlugin {
       // Register notifier to watch for new items
       this.registerNotifier();
 
+      // Start auto-check timer if enabled
+      this.startAutoCheck();
+
       Zotero.debug("ReplicationCheckerPlugin initialized successfully");
     } catch (error) {
-      Zotero.logError(`Failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
+      Zotero.logError(new Error(`Failed to initialize: ${error instanceof Error ? error.message : String(error)}`));
       throw error;
     }
   }
@@ -53,12 +58,17 @@ export class ReplicationCheckerPlugin {
    * Register Zotero notifier to watch for new items
    */
   private registerNotifier(): void {
-    const notifierCallback = {
-      notify: async (event: string, type: string, ids: number[], extraData?: any) => {
+    const notifierCallback: { notify: _ZoteroTypes.Notifier.Notify } = {
+      notify: async (
+        event: string,
+        type: string,
+        ids: (number | string)[],
+        extraData?: any
+      ): Promise<void> => {
         if (event === "add" && type === "item") {
           // Small delay to ensure item is fully saved
           setTimeout(() => {
-            this.checkNewItems(ids);
+            this.checkNewItems(ids as number[]);
           }, 2000);
         }
       },
@@ -66,6 +76,77 @@ export class ReplicationCheckerPlugin {
 
     this.notifierID = Zotero.Notifier.registerObserver(notifierCallback, ["item"]);
     Zotero.debug("ReplicationChecker: Notifier registered for new items");
+  }
+
+  /**
+   * Get auto-check frequency from preferences
+   */
+  private getAutoCheckFrequency(): string {
+    try {
+      const frequency = Zotero.Prefs.get("extensions.zotero.replication-checker.autoCheckFrequency") || "disabled";
+      return frequency as string;
+    } catch (error) {
+      Zotero.debug(`Failed to get auto-check frequency preference: ${error}`);
+      return "disabled";
+    }
+  }
+
+  /**
+   * Calculate auto-check interval in milliseconds
+   */
+  private getAutoCheckInterval(): number {
+    const frequency = this.getAutoCheckFrequency();
+    const intervals: { [key: string]: number } = {
+      disabled: 0,
+      daily: 24 * 60 * 60 * 1000, // 24 hours
+      weekly: 7 * 24 * 60 * 60 * 1000, // 7 days
+      monthly: 30 * 24 * 60 * 60 * 1000, // 30 days
+    };
+    return intervals[frequency] || 0;
+  }
+
+  /**
+   * Start auto-check timer based on preferences
+   */
+  private startAutoCheck(): void {
+    const interval = this.getAutoCheckInterval();
+    if (interval === 0) {
+      Zotero.debug("ReplicationChecker: Auto-check is disabled");
+      return;
+    }
+
+    // Check immediately on startup
+    setTimeout(() => {
+      this.checkEntireLibrary();
+      this.lastAutoCheckTime = Date.now();
+    }, 5000); // Wait 5 seconds for plugin to fully initialize
+
+    // Set up recurring check
+    this.autoCheckTimer = setInterval(
+      () => {
+        Zotero.debug(
+          `ReplicationChecker: Running auto-check (interval: ${this.getAutoCheckFrequency()})`
+        );
+        this.checkEntireLibrary();
+        this.lastAutoCheckTime = Date.now();
+      },
+      interval
+    ) as unknown as number;
+
+    Zotero.debug(
+      `ReplicationChecker: Auto-check timer started (interval: ${this.getAutoCheckFrequency()})`
+    );
+  }
+
+  /**
+   * Stop auto-check timer
+   */
+  private stopAutoCheck(): void {
+    if (this.autoCheckTimer !== null) {
+      clearInterval(this.autoCheckTimer);
+      this.autoCheckTimer = null;
+      Zotero.debug("ReplicationChecker: Auto-check timer stopped");
+    }
   }
 
   /**
@@ -121,9 +202,9 @@ export class ReplicationCheckerPlugin {
         }
       }
     } catch (error) {
-      Zotero.logError(
+      Zotero.logError(new Error(
         `Error checking new items: ${error instanceof Error ? error.message : String(error)}`
-      );
+      ));
     }
   }
 
@@ -138,14 +219,14 @@ export class ReplicationCheckerPlugin {
       const progressWin = new Zotero.ProgressWindow();
       progressWin.changeHeadline("Checking for Replications");
       progressWin.show();
-      progressWin.addLines(["Scanning library..."]);
+      progressWin.addLines("Scanning library...");
 
       // Get all DOIs from library
       const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
       const uniqueDois = this.getUniqueDOIs(libraryItems);
 
-      progressWin.addLines([`Found ${libraryItems.length} items with DOIs (${uniqueDois.length} unique)`]);
-      progressWin.addLines(["Checking against replication database..."]);
+      progressWin.addLines(`Found ${libraryItems.length} items with DOIs (${uniqueDois.length} unique)`);
+      progressWin.addLines("Checking against replication database...");
 
       // Check for replications
       const results = await this.matcher.checkBatch(uniqueDois);
@@ -167,11 +248,11 @@ export class ReplicationCheckerPlugin {
                 processedItems.add(libraryItem.itemID);
                 matchCount++;
               } catch (error) {
-                Zotero.logError(
+                Zotero.logError(new Error(
                   `Error processing item ${libraryItem.itemID}: ${
                     error instanceof Error ? error.message : String(error)
                   }`
-                );
+                ));
               }
             }
           }
@@ -180,12 +261,22 @@ export class ReplicationCheckerPlugin {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found ${matchCount} item(s) with replications`]);
+      progressWin.addLines(`Found ${matchCount} item(s) with replications`);
+
       progressWin.startCloseTimer(3000);
     } catch (error) {
-      Zotero.logError(
-        `Error checking library: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      Zotero.logError(new Error(`Error checking library: ${errorMsg}`));
+
+      // Show error alert to user
+      const win = Zotero.getMainWindow();
+      if (win) {
+        Services.prompt.alert(
+          win,
+          "Replication Checker - Error",
+          `Failed to check library for replications:\n\n${errorMsg}\n\nPlease check your internet connection and try again.`
+        );
+      }
     }
   }
 
@@ -227,11 +318,11 @@ export class ReplicationCheckerPlugin {
                   await this.notifyUserAndAddReplications(libraryItem.itemID, result.replications);
                   processedItems.add(libraryItem.itemID);
                 } catch (error) {
-                  Zotero.logError(
+                  Zotero.logError(new Error(
                     `Error processing item ${libraryItem.itemID}: ${
                       error instanceof Error ? error.message : String(error)
                     }`
-                  );
+                  ));
                 }
               }
             }
@@ -242,9 +333,18 @@ export class ReplicationCheckerPlugin {
       // Show results alert
       this.showResultsAlert(results, uniqueDois.length, selectedItems.length, true);
     } catch (error) {
-      Zotero.logError(
-        `Error checking selected items: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      Zotero.logError(new Error(`Error checking selected items: ${errorMsg}`));
+
+      // Show error alert to user
+      const win = Zotero.getMainWindow();
+      if (win) {
+        Services.prompt.alert(
+          win,
+          "Replication Checker - Error",
+          `Failed to check selected items for replications:\n\n${errorMsg}\n\nPlease check your internet connection and try again.`
+        );
+      }
     }
   }
 
@@ -268,7 +368,7 @@ export class ReplicationCheckerPlugin {
       const progressWin = new Zotero.ProgressWindow();
       progressWin.changeHeadline("Checking for Replications in Collection");
       progressWin.show();
-      progressWin.addLines(["Scanning collection..."]);
+      progressWin.addLines("Scanning collection...");
 
       // Get DOIs from collection
       const selectedItems = await ZoteroIntegration.getDOIsFromCollection(collection.id);
@@ -276,14 +376,15 @@ export class ReplicationCheckerPlugin {
 
       if (!selectedItems || selectedItems.length === 0) {
         progressWin.changeHeadline("Check Complete");
-        progressWin.addLines(["No items with DOIs found in collection"]);
+        progressWin.addLines("No items with DOIs found in collection");
         progressWin.startCloseTimer(3000);
         return;
       }
 
       const uniqueDois = this.getUniqueDOIs(selectedItems);
-      progressWin.addLines([`Found ${selectedItems.length} items with DOIs (${uniqueDois.length} unique)`]);
-      progressWin.addLines(["Checking against replication database..."]);
+      progressWin.addLines(`Found ${selectedItems.length} items with DOIs (${uniqueDois.length} unique)`);
+
+      progressWin.addLines("Checking against replication database...");
 
       // Check for replications
       const results = await this.matcher.checkBatch(uniqueDois);
@@ -307,11 +408,11 @@ export class ReplicationCheckerPlugin {
                   processedItems.add(libraryItem.itemID);
                   matchCount++;
                 } catch (error) {
-                  Zotero.logError(
+                  Zotero.logError(new Error(
                     `Error processing item ${libraryItem.itemID}: ${
                       error instanceof Error ? error.message : String(error)
                     }`
-                  );
+                  ));
                 }
               }
             }
@@ -321,15 +422,25 @@ export class ReplicationCheckerPlugin {
 
       // Update progress
       progressWin.changeHeadline("Check Complete");
-      progressWin.addLines([`Found ${matchCount} item(s) with replications`]);
+      progressWin.addLines(`Found ${matchCount} item(s) with replications`);
+
       progressWin.startCloseTimer(3000);
 
       // Show results alert
       this.showResultsAlert(results, uniqueDois.length, selectedItems.length, false, true);
     } catch (error) {
-      Zotero.logError(
-        `Error checking collection: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      Zotero.logError(new Error(`Error checking collection: ${errorMsg}`));
+
+      // Show error alert to user
+      const win = Zotero.getMainWindow();
+      if (win) {
+        Services.prompt.alert(
+          win,
+          "Replication Checker - Error",
+          `Failed to check collection for replications:\n\n${errorMsg}\n\nPlease check your internet connection and try again.`
+        );
+      }
     }
   }
 
@@ -374,7 +485,8 @@ export class ReplicationCheckerPlugin {
         const progressWin = new Zotero.ProgressWindow();
         progressWin.changeHeadline("Replication Information Added");
         progressWin.show();
-        progressWin.addLines([`Added replication information to "${itemTitle}"`]);
+        progressWin.addLines(`Added replication information to "${itemTitle}"`);
+
         progressWin.startCloseTimer(3000);
 
         Zotero.debug(`ReplicationChecker: User accepted replication info for item ${itemID}`);
@@ -382,9 +494,9 @@ export class ReplicationCheckerPlugin {
         Zotero.debug(`ReplicationChecker: User declined replication info for item ${itemID}`);
       }
     } catch (error) {
-      Zotero.logError(
+      Zotero.logError(new Error(
         `Error showing replication dialog: ${error instanceof Error ? error.message : String(error)}`
-      );
+      ));
     }
   }
 
@@ -400,11 +512,11 @@ export class ReplicationCheckerPlugin {
       // Step 2: Add to replication folder
       await this.addReplicationsToFolder(itemID, replications);
     } catch (error) {
-      Zotero.logError(
+      Zotero.logError(new Error(
         `Error in notifyUserAndAddReplications for item ${itemID}: ${
           error instanceof Error ? error.message : String(error)
         }`
-      );
+      ));
       throw error;
     }
   }
@@ -435,7 +547,7 @@ export class ReplicationCheckerPlugin {
       // Add outcome tags
       const allowedOutcomes: { [key: string]: string } = {
         successful: "Replication: Successful",
-        failure: "Replication: Failure",
+        failed: "Replication: Failure",
         mixed: "Replication: Mixed",
       };
 
@@ -549,9 +661,10 @@ export class ReplicationCheckerPlugin {
       );
 
       if (!replicationCollection) {
-        replicationCollection = new Zotero.Collection();
-        replicationCollection.libraryID = libraryID;
-        replicationCollection.name = "Replication folder";
+        replicationCollection = new Zotero.Collection({
+          libraryID: libraryID,
+          name: "Replication folder",
+        });
         await replicationCollection.saveTx();
         Zotero.debug(`Created new "Replication folder" collection in library ${libraryID}`);
       }
@@ -565,13 +678,58 @@ export class ReplicationCheckerPlugin {
             continue;
           }
 
-          // Check for duplicate
+          // Check for duplicate items with the same DOI already in the library
           const search = new Zotero.Search();
           search.libraryID = libraryID;
           search.addCondition("DOI", "is", doi_r);
           const existingIDs = await search.search();
+
+          // If the replication item already exists in the library, don't create a duplicate.
+          // Instead, (a) make sure it's in the "Replication folder" collection and
+          // (b) link it as a related item to the original.
           if (existingIDs.length > 0) {
-            Zotero.debug(`Skipping duplicate replication item with DOI: ${doi_r}`);
+            Zotero.debug(
+              `Found existing replication item(s) with DOI ${doi_r}; linking instead of creating duplicate`
+            );
+
+            for (const existingID of existingIDs) {
+              const existingItem = await Zotero.Items.getAsync(existingID);
+              if (!existingItem) continue;
+
+              // Ensure the existing item is in the replication collection
+              try {
+                await replicationCollection.addItem(existingID);
+                Zotero.debug(
+                  `Ensured existing replication item ${existingID} is in "Replication folder"`
+                );
+              } catch (collectionError) {
+                Zotero.debug(
+                  `Failed to add existing replication item ${existingID} to "Replication folder": ${collectionError}`
+                );
+              }
+
+              // Link original item and existing replication item as related items (bidirectional)
+              try {
+                item.addRelatedItem(existingItem);
+                existingItem.addRelatedItem(item);
+                Zotero.debug(
+                  `Added bidirectional related items link: ${itemID} ↔ ${existingID}`
+                );
+
+                // Save both items to persist the relationship
+                // We're in a transaction, so use save() not saveTx()
+                await item.save();
+                await existingItem.save();
+                Zotero.debug(
+                  `Linked original item ${itemID} with existing replication item ${existingID}`
+                );
+              } catch (linkError) {
+                Zotero.debug(
+                  `Failed to create related items link between ${itemID} and ${existingID}: ${linkError}`
+                );
+              }
+            }
+
             continue;
           }
 
@@ -590,6 +748,23 @@ export class ReplicationCheckerPlugin {
             const newItemID = await newItem.save();
             Zotero.debug(`Added new replication item with ID ${newItemID} for DOI ${doi_r}`);
 
+            // Add bidirectional "related items" link between original and replication
+            try {
+              // Add relationship from original to replication and vice versa
+              item.addRelatedItem(newItem);
+              newItem.addRelatedItem(item);
+              Zotero.debug(`Added bidirectional related items link: ${itemID} ↔ ${newItemID}`);
+
+              // Save both items to persist the relationship
+              // We're in a transaction, so use save() not saveTx()
+              await item.save();
+              await newItem.save();
+              Zotero.debug(`Linked original item ${itemID} with replication item ${newItemID}`);
+            } catch (linkError) {
+              Zotero.debug(`Failed to create related items link: ${linkError}`);
+              // Don't throw - we still want to add the replication even if linking fails
+            }
+
             // Parse and add authors
             let authors: any[] = [];
             if (rep.author_r) {
@@ -606,23 +781,24 @@ export class ReplicationCheckerPlugin {
 
             // Add creators
             if (authors && Array.isArray(authors) && authors.length > 0) {
+              const creators: Array<_ZoteroTypes.Item.CreatorJSON> = [];
               for (const author of authors) {
-                try {
-                  newItem.addCreator({
-                    creatorType: "author",
-                    firstName: author.given || "",
-                    lastName: author.family || "",
-                  });
-                } catch (e) {
-                  Zotero.debug(`Failed to add creator for DOI ${doi_r}`);
-                }
+                creators.push({
+                  creatorType: "author",
+                  firstName: author.given || "",
+                  lastName: author.family || "",
+                });
               }
-              await newItem.save();
+              try {
+                newItem.setCreators(creators);
+                await newItem.save();
+              } catch (e) {
+                Zotero.debug(`Failed to add creators for DOI ${doi_r}`);
+              }
             }
 
             // Add to collection
-            replicationCollection.addItem(newItemID);
-            await replicationCollection.save();
+            await replicationCollection.addItem(newItemID);
             Zotero.debug(`Added replication item ${newItemID} to "Replication folder"`);
           } catch (error) {
             Zotero.debug(`Error creating replication item for DOI ${doi_r}: ${error}`);
@@ -784,6 +960,10 @@ export class ReplicationCheckerPlugin {
    * Shutdown the plugin
    */
   shutdown(): void {
+    // Stop auto-check timer
+    this.stopAutoCheck();
+
+    // Unregister notifier
     if (this.notifierID) {
       Zotero.Notifier.unregisterObserver(this.notifierID);
       Zotero.debug("ReplicationChecker: Notifier unregistered");

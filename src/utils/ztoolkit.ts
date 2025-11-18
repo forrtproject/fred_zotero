@@ -18,8 +18,9 @@ function initZToolkit(_ztoolkit: ReturnType<typeof createZToolkit>) {
   const env = __env__;
   _ztoolkit.basicOptions.log.prefix = `[${config.addonName}]`;
   _ztoolkit.basicOptions.log.disableConsole = env === "production";
-  _ztoolkit.UI.basicOptions.ui.enableElementJSONLog = __env__ === "development";
-  _ztoolkit.UI.basicOptions.ui.enableElementDOMLog = __env__ === "development";
+  // Disable verbose DOM logging to reduce console clutter
+  _ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false;
+  _ztoolkit.UI.basicOptions.ui.enableElementDOMLog = false;
   _ztoolkit.basicOptions.api.pluginID = config.addonID;
   _ztoolkit.ProgressWindow.setIconURI(
     "default",

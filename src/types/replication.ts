@@ -3,6 +3,33 @@
  */
 
 /**
+ * A single replication study from the API response
+ */
+export interface ReplicationStudy {
+  doi_r: string;
+  title_r: string;
+  author_r: string | string[];
+  journal_r: string;
+  year_r?: number;
+  volume_r?: string;
+  issue_r?: string;
+  pages_r?: string;
+  outcome: string;
+  url_r?: string;
+}
+
+/**
+ * An item entry in the API response for a given prefix
+ */
+export interface ReplicationItemEntry {
+  doi_o: string;
+  meta?: {
+    original_doi?: string;
+  };
+  replications: ReplicationStudy[];
+}
+
+/**
  * A replication match found for an item
  */
 export interface ReplicationMatch {
@@ -47,9 +74,10 @@ export interface PrefixLookupRequest {
 
 /**
  * API response from prefix lookup
+ * Maps hash prefixes to arrays of items with their replications
  */
 export interface PrefixLookupResponse {
-  [prefix: string]: ReplicationMatch[];
+  [prefix: string]: ReplicationItemEntry[];
 }
 
 /**

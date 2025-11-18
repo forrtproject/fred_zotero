@@ -16,6 +16,9 @@ interface MatchResult {
   replications: any[];
 }
 
+type LocaleParams = Record<string, string | number>;
+const FEEDBACK_URL = "https://tinyurl.com/y5evebv9";
+
 /**
  * Main plugin class for replication checking
  */
@@ -175,9 +178,53 @@ export class ReplicationCheckerPlugin {
 
     Services.prompt.alert(
       win,
-      "Replication Checker - Error",
-      "Could not retrieve data from API - check your internet connection or retry again later."
+      this.getString("replication-checker-error-title"),
+      this.getString("replication-checker-error-api")
     );
+  }
+
+  /**
+   * Convenience wrapper around Zotero.getString
+   */
+  private getString(id: string, params?: LocaleParams): string {
+    try {
+      const getStringFn = Zotero.getString as unknown as (key: string, substitutions?: any) => string;
+      return params ? getStringFn(id, params) : getStringFn(id);
+    } catch (error) {
+      Zotero.debug(
+        `ReplicationChecker: Missing localization for '${id}': ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return "";
+    }
+  }
+
+  /**
+   * Show a simple information alert with a localized title and message
+   */
+  private showInfoAlert(messageKey: string, params?: LocaleParams): void {
+    const win = Zotero.getMainWindow();
+    if (!win) return;
+
+    Services.prompt.alert(win, this.getString("replication-checker-alert-title"), this.getString(messageKey, params));
+  }
+
+  /**
+   * Show a detailed error alert for contextual operations
+   */
+  private showOperationError(target: "library" | "selected" | "collection", details: string): void {
+    const win = Zotero.getMainWindow();
+    if (!win) return;
+
+    const title = this.getString("replication-checker-error-title");
+    const targetLabel = this.getString(`replication-checker-target-${target}`);
+    const message = this.getString("replication-checker-error-body", {
+      target: targetLabel,
+      details,
+    });
+
+    Services.prompt.alert(win, title, message);
   }
 
   /**
@@ -323,24 +370,29 @@ export class ReplicationCheckerPlugin {
 
       // Show progress
       const progressWin = new Zotero.ProgressWindow();
-      progressWin.changeHeadline("Checking for Replications");
+      progressWin.changeHeadline(this.getString("replication-checker-progress-checking-library"));
       progressWin.show();
-      progressWin.addLines("Scanning library...");
+      progressWin.addLines(this.getString("replication-checker-progress-scanning-library"));
 
       // Get all DOIs from library
       const libraryItems = await ZoteroIntegration.getAllDOIsFromLibrary();
       const uniqueDois = this.getUniqueDOIs(libraryItems);
 
-      progressWin.addLines(`Found ${libraryItems.length} items with DOIs (${uniqueDois.length} unique)`);
-      progressWin.addLines("Checking against replication database...");
+      progressWin.addLines(
+        this.getString("replication-checker-progress-found-dois", {
+          itemCount: libraryItems.length,
+          uniqueCount: uniqueDois.length,
+        })
+      );
+      progressWin.addLines(this.getString("replication-checker-progress-checking-database"));
 
       // Check for replications
       let results: MatchResult[];
       try {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
-        progressWin.changeHeadline("Check Failed");
-        progressWin.addLines("Could not retrieve data from API - check your internet connection or retry again later.");
+        progressWin.changeHeadline(this.getString("replication-checker-progress-failed"));
+        progressWin.addLines(this.getString("replication-checker-error-api"));
         progressWin.startCloseTimer(4000);
         this.handleMatchError(error, "library");
         return;
@@ -375,8 +427,12 @@ export class ReplicationCheckerPlugin {
       }
 
       // Update progress
-      progressWin.changeHeadline("Check Complete");
-      progressWin.addLines(`Found ${matchCount} item(s) with replications`);
+      progressWin.changeHeadline(this.getString("replication-checker-progress-complete"));
+      progressWin.addLines(
+        this.getString("replication-checker-progress-match-count", {
+          count: matchCount,
+        })
+      );
 
       progressWin.startCloseTimer(3000);
     } catch (error) {
@@ -384,14 +440,7 @@ export class ReplicationCheckerPlugin {
       Zotero.logError(new Error(`Error checking library: ${errorMsg}`));
 
       // Show error alert to user
-      const win = Zotero.getMainWindow();
-      if (win) {
-        Services.prompt.alert(
-          win,
-          "Replication Checker - Error",
-          `Failed to check library for replications:\n\n${errorMsg}\n\nCould not retrieve data from API - check your internet connection or retry again later.`
-        );
-      }
+      this.showOperationError("library", errorMsg);
     }
   }
 
@@ -407,10 +456,7 @@ export class ReplicationCheckerPlugin {
       const uniqueDois = this.getUniqueDOIs(selectedItems);
 
       if (uniqueDois.length === 0) {
-        const win = Zotero.getMainWindow();
-        if (win) {
-          Services.prompt.alert(win, "Zotero Replication Checker", "No DOIs found in selected items");
-        }
+        this.showInfoAlert("replication-checker-alert-no-dois-selected");
         return;
       }
 
@@ -458,14 +504,7 @@ export class ReplicationCheckerPlugin {
       Zotero.logError(new Error(`Error checking selected items: ${errorMsg}`));
 
       // Show error alert to user
-      const win = Zotero.getMainWindow();
-      if (win) {
-        Services.prompt.alert(
-          win,
-          "Replication Checker - Error",
-          `Failed to check selected items for replications:\n\n${errorMsg}\n\nCould not retrieve data from API - check your internet connection or retry again later.`
-        );
-      }
+      this.showOperationError("selected", errorMsg);
     }
   }
 
@@ -478,46 +517,44 @@ export class ReplicationCheckerPlugin {
 
       const collection = Zotero.getActiveZoteroPane().getSelectedCollection();
       if (!collection) {
-        const win = Zotero.getMainWindow();
-        if (win) {
-          Services.prompt.alert(
-            win,
-            "Zotero Replication Checker",
-            "Please select a collection before running this check."
-          );
-        }
+        this.showInfoAlert("replication-checker-alert-no-collection");
         return;
       }
 
       // Show progress
       const progressWin = new Zotero.ProgressWindow();
-      progressWin.changeHeadline("Checking for Replications in Collection");
+      progressWin.changeHeadline(this.getString("replication-checker-progress-checking-collection"));
       progressWin.show();
-      progressWin.addLines("Scanning collection...");
+      progressWin.addLines(this.getString("replication-checker-progress-scanning-collection"));
 
       // Get DOIs from collection
       const selectedItems = await ZoteroIntegration.getDOIsFromCollection(collection.id);
       Zotero.debug(`Retrieved ${selectedItems.length} items from collection ${collection.id}`);
 
       if (!selectedItems || selectedItems.length === 0) {
-        progressWin.changeHeadline("Check Complete");
-        progressWin.addLines("No items with DOIs found in collection");
+        progressWin.changeHeadline(this.getString("replication-checker-progress-complete"));
+        progressWin.addLines(this.getString("replication-checker-progress-no-dois"));
         progressWin.startCloseTimer(3000);
         return;
       }
 
       const uniqueDois = this.getUniqueDOIs(selectedItems);
-      progressWin.addLines(`Found ${selectedItems.length} items with DOIs (${uniqueDois.length} unique)`);
+      progressWin.addLines(
+        this.getString("replication-checker-progress-found-dois", {
+          itemCount: selectedItems.length,
+          uniqueCount: uniqueDois.length,
+        })
+      );
 
-      progressWin.addLines("Checking against replication database...");
+      progressWin.addLines(this.getString("replication-checker-progress-checking-database"));
 
       // Check for replications
       let results: MatchResult[];
       try {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
-        progressWin.changeHeadline("Check Failed");
-        progressWin.addLines("Could not retrieve data from API - check your internet connection or retry again later.");
+        progressWin.changeHeadline(this.getString("replication-checker-progress-failed"));
+        progressWin.addLines(this.getString("replication-checker-error-api"));
         progressWin.startCloseTimer(4000);
         this.handleMatchError(error, "collection");
         return;
@@ -555,8 +592,12 @@ export class ReplicationCheckerPlugin {
       }
 
       // Update progress
-      progressWin.changeHeadline("Check Complete");
-      progressWin.addLines(`Found ${matchCount} item(s) with replications`);
+      progressWin.changeHeadline(this.getString("replication-checker-progress-complete"));
+      progressWin.addLines(
+        this.getString("replication-checker-progress-match-count", {
+          count: matchCount,
+        })
+      );
 
       progressWin.startCloseTimer(3000);
 
@@ -567,14 +608,7 @@ export class ReplicationCheckerPlugin {
       Zotero.logError(new Error(`Error checking collection: ${errorMsg}`));
 
       // Show error alert to user
-      const win = Zotero.getMainWindow();
-      if (win) {
-        Services.prompt.alert(
-          win,
-          "Replication Checker - Error",
-          `Failed to check collection for replications:\n\n${errorMsg}\n\nCould not retrieve data from API - check your internet connection or retry again later.`
-        );
-      }
+      this.showOperationError("collection", errorMsg);
     }
   }
 
@@ -592,24 +626,34 @@ export class ReplicationCheckerPlugin {
       const itemTitle = item.getField("title") as string;
 
       // Build message
-      let message = `Replication studies found for:\n"${itemTitle}"\n\n`;
-      message += `Found ${replications.length} replication(s):\n\n`;
+      let message = `${this.getString("replication-checker-dialog-intro", { title: itemTitle })}\n\n`;
+      message += `${this.getString("replication-checker-dialog-count", { count: replications.length })}\n\n`;
 
       for (let i = 0; i < Math.min(replications.length, 3); i++) {
         const rep = replications[i];
-        message += `${i + 1}. ${rep.title_r}\n`;
-        message += `(${rep.year_r})\n`;
-        message += `   Outcome: ${rep.outcome || "Not specified"}\n\n`;
+        const entry = this.getString("replication-checker-dialog-item", {
+          index: i + 1,
+          title: rep.title_r || this.getString("replication-checker-li-no-title"),
+          year: rep.year_r || this.getString("replication-checker-li-na"),
+          outcome: rep.outcome || this.getString("replication-checker-li-na"),
+        });
+        message += `${entry}\n\n`;
       }
 
       if (replications.length > 3) {
-        message += `...and ${replications.length - 3} more replication(s)\n\n`;
+        message += `${this.getString("replication-checker-dialog-more", {
+          count: replications.length - 3,
+        })}\n\n`;
       }
 
-      message += `Would you like to add replication information?`;
+      message += this.getString("replication-checker-dialog-question");
 
       // Show confirmation dialog
-      const result = Services.prompt.confirm(win, "Replication Studies Found", message);
+      const result = Services.prompt.confirm(
+        win,
+        this.getString("replication-checker-dialog-title"),
+        message
+      );
 
       if (result) {
         // User clicked "OK" - add tag and note
@@ -617,9 +661,13 @@ export class ReplicationCheckerPlugin {
 
         // Show success message
         const progressWin = new Zotero.ProgressWindow();
-        progressWin.changeHeadline("Replication Information Added");
+        progressWin.changeHeadline(this.getString("replication-checker-dialog-progress-title"));
         progressWin.show();
-        progressWin.addLines(`Added replication information to "${itemTitle}"`);
+        progressWin.addLines(
+          this.getString("replication-checker-dialog-progress-line", {
+            title: itemTitle,
+          })
+        );
 
         progressWin.startCloseTimer(3000);
 
@@ -676,38 +724,47 @@ export class ReplicationCheckerPlugin {
       });
 
       // Add "Has Replication" tag
-      await ZoteroIntegration.addTag(itemID, "Has Replication");
+      await ZoteroIntegration.addTag(itemID, this.getString("replication-checker-tag"));
 
       // Add outcome tags
-      const allowedOutcomes: { [key: string]: string } = {
-        successful: "Replication: Successful",
-        failed: "Replication: Failure",
-        mixed: "Replication: Mixed",
+      const outcomeTags: { [key: string]: string } = {
+        successful: this.getString("replication-checker-tag-success"),
+        failure: this.getString("replication-checker-tag-failure"),
+        mixed: this.getString("replication-checker-tag-mixed"),
       };
 
       const uniqueOutcomes = new Set<string>(
         uniqueReplications
-          .map((r: any) => (r.outcome && typeof r.outcome === "string" ? r.outcome.toLowerCase() : null))
-          .filter((o: any) => o && Object.keys(allowedOutcomes).includes(o))
+          .map((r: any) => {
+            if (!r.outcome || typeof r.outcome !== "string") return null;
+            const lower = r.outcome.toLowerCase();
+            return lower === "failed" ? "failure" : lower;
+          })
+          .filter((o: any) => o && Object.keys(outcomeTags).includes(o))
       );
 
       // Add all tags
       await Promise.all(
-        Array.from(uniqueOutcomes).map((outcome) =>
-          ZoteroIntegration.addTag(itemID, allowedOutcomes[outcome])
-        )
+        Array.from(uniqueOutcomes).map((outcome) => {
+          const label = outcomeTags[outcome];
+          return label ? ZoteroIntegration.addTag(itemID, label) : Promise.resolve();
+        })
       );
 
       // Get or create replication note
       const noteIDs = item.getNotes();
       let existingNote = null;
+      const noteHeadingHtml = this.getNoteHeadingHtml();
 
       for (const noteID of noteIDs) {
         const note = await Zotero.Items.getAsync(noteID);
         if (!note) continue;
 
         const currentNoteHTML = note.getNote();
-        if (currentNoteHTML.startsWith("<h2>Replications Found</h2>")) {
+        if (
+          currentNoteHTML.startsWith(noteHeadingHtml) ||
+          currentNoteHTML.startsWith("<h2>Replications Found</h2>")
+        ) {
           existingNote = note;
           break;
         }
@@ -762,7 +819,9 @@ export class ReplicationCheckerPlugin {
       }
     } catch (error) {
       Zotero.logError(
-        `Failed to notify user for item ${itemID}: ${error instanceof Error ? error.message : String(error)}`
+        new Error(
+          `Failed to notify user for item ${itemID}: ${error instanceof Error ? error.message : String(error)}`
+        )
       );
       throw error;
     }
@@ -941,41 +1000,51 @@ export class ReplicationCheckerPlugin {
       });
     } catch (error) {
       Zotero.logError(
-        `Failed to add replications to folder for item ${itemID}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        new Error(
+          `Failed to add replications to folder for item ${itemID}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
       );
       throw error;
     }
+  }
+
+  private getNoteHeadingHtml(): string {
+    return `<h2>${this.escapeHtml(this.getString("replication-checker-note-title"))}</h2>`;
   }
 
   /**
    * Create HTML for a single replication list item
    */
   private createReplicationLi(rep: any): string {
+    const title = rep.title_r || this.getString("replication-checker-li-no-title");
+    const year = rep.year_r || this.getString("replication-checker-li-na");
+    const journal = rep.journal_r || this.getString("replication-checker-li-no-journal");
+    const doiValue = rep.doi_r || this.getString("replication-checker-li-na");
+    const doiLabel = this.escapeHtml(this.getString("replication-checker-li-doi-label"));
+    const outcomeLabel = this.escapeHtml(this.getString("replication-checker-li-outcome"));
+    const linkLabel = this.escapeHtml(this.getString("replication-checker-li-link"));
+
     let li = "<li>";
-    li += `<strong>${this.escapeHtml(rep.title_r || "No title available")}</strong><br>`;
-    li += `${this.parseAuthors(rep.author_r)} (${this.escapeHtml(rep.year_r || "N/A")})<br>`;
-    li += `<em>${this.escapeHtml(rep.journal_r || "No journal")}</em><br>`;
-    li += `DOI: <a href="https://doi.org/${this.escapeHtml(rep.doi_r || "N/A")}">${this.escapeHtml(
-      rep.doi_r || "N/A"
-    )}</a><br>`;
+    li += `<strong>${this.escapeHtml(title)}</strong><br>`;
+    li += `${this.parseAuthors(rep.author_r)} (${this.escapeHtml(year)})<br>`;
+    li += `<em>${this.escapeHtml(journal)}</em><br>`;
+    li += `${doiLabel} <a href="https://doi.org/${this.escapeHtml(doiValue)}">${this.escapeHtml(doiValue)}</a><br>`;
 
     if (rep.outcome) {
-      li += `Author Reported Outcome: <strong>${this.escapeHtml(rep.outcome)}</strong><br>`;
+      li += `${outcomeLabel} <strong>${this.escapeHtml(rep.outcome)}</strong><br>`;
     }
 
+    const link = typeof rep.url_r === "string" ? rep.url_r.trim() : "";
     if (
       rep.doi_r &&
       rep.doi_r.trim().toLowerCase() !== "na" &&
-      rep.url_r &&
-      typeof rep.url_r === "string" &&
-      rep.url_r.trim().toLowerCase() !== "na" &&
-      rep.url_r.trim().startsWith("https")
+      link &&
+      link.toLowerCase() !== "na" &&
+      link.startsWith("https")
     ) {
-      li += `This study has a linked report: <a href="${this.escapeHtml(
-        rep.url_r.trim()
-      )}" target="_blank">${this.escapeHtml(rep.url_r.trim())}</a><br>`;
+      li += `${linkLabel} <a href="${this.escapeHtml(link)}" target="_blank">${this.escapeHtml(link)}</a><br>`;
     }
 
     li += "</li>";
@@ -986,9 +1055,14 @@ export class ReplicationCheckerPlugin {
    * Format replication data as HTML note
    */
   private createReplicationNote(replications: any[]): string {
-    let html = "<h2>Replications Found</h2>";
-    html += "<i>This is an automatically generated note. Do not make changes!</i><br>";
-    html += "<p>This study has been replicated:</p>";
+    const warning = this.escapeHtml(this.getString("replication-checker-note-warning"));
+    const intro = this.escapeHtml(this.getString("replication-checker-note-intro"));
+    const feedbackHtml = this.getString("replication-checker-note-feedback", { url: FEEDBACK_URL });
+    const footer = this.escapeHtml(this.getString("replication-checker-note-footer"));
+
+    let html = this.getNoteHeadingHtml();
+    html += `<i>${warning}</i><br>`;
+    html += `<p>${intro}</p>`;
     html += "<ul>";
     for (const rep of replications) {
       html += this.createReplicationLi(rep);
@@ -997,10 +1071,10 @@ export class ReplicationCheckerPlugin {
     html += `
       <hr/>
       <div style="padding:10px; border-radius:5px; margin-top:15px;">
-        <p><strong>Did you find this result useful? Provide feedback <a href="https://tinyurl.com/y5evebv9" target="_blank">here</a>!</strong></p>
+        <p><strong>${feedbackHtml}</strong></p>
       </div>
     `;
-    html += "<p><small>Generated by Zotero Replication Checker using the FORRT Replication Database (FReD)</small></p>";
+    html += `<p><small>${footer}</small></p>`;
     return html;
   }
 
@@ -1022,7 +1096,7 @@ export class ReplicationCheckerPlugin {
    */
   private parseAuthors(authors: any): string {
     if (!authors || !Array.isArray(authors) || authors.length === 0) {
-      return "No authors available";
+      return this.getString("replication-checker-li-no-authors");
     }
 
     const authorStrings = authors.map((author: any) => {
@@ -1050,26 +1124,24 @@ export class ReplicationCheckerPlugin {
     const win = Zotero.getMainWindow();
     if (!win) return;
 
-    let message = isCollection
-      ? "Collection Scan Complete"
+    const titleKey = isCollection
+      ? "replication-checker-results-title-collection"
       : isSelected
-        ? "Selected Items Scan Complete"
-        : "Library Scan Complete";
-    message += `\nTotal items checked: ${totalItems}`;
-    message += `\nItems with DOIs: ${doiCount}`;
-    message += "\n\nReplication check results:";
+        ? "replication-checker-results-title-selected"
+        : "replication-checker-results-title-library";
+
+    let message = `${this.getString(titleKey)}\n`;
+    message += `${this.getString("replication-checker-results-total", { count: totalItems })}\n`;
+    message += `${this.getString("replication-checker-results-dois", { count: doiCount })}\n\n`;
 
     const matchCount = results.filter((r) => r.replications.length > 0).length;
 
-    if (matchCount > 0) {
-      message += `\n${matchCount} item(s) have replications.`;
-    } else {
-      message += "\nNo replications found.";
-    }
+    const matchKey =
+      matchCount > 0 ? "replication-checker-results-found" : "replication-checker-results-none";
+    message += `${this.getString(matchKey, { count: matchCount })}\n`;
+    message += this.getString("replication-checker-results-footer");
 
-    message += "\nView notes for details or select items to re-check.";
-
-    Services.prompt.alert(win, "Zotero Replication Checker", message);
+    Services.prompt.alert(win, this.getString("replication-checker-alert-title"), message);
   }
 
   /**

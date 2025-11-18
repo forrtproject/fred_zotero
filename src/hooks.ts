@@ -62,7 +62,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("menuTools", {
       tag: "menuitem",
       id: "replication-checker-tools-menu",
-      label: "Check Current Library for Replications",
+      label: Zotero.getString("replication-checker-tools-menu"),
       commandListener: () => {
         replicationChecker.checkEntireLibrary();
       },
@@ -73,7 +73,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("item", {
       tag: "menuitem",
       id: "replication-checker-item-menu",
-      label: "Check for Replications",
+      label: Zotero.getString("replication-checker-context-menu"),
       commandListener: () => {
         replicationChecker.checkSelectedItems();
       },
@@ -84,7 +84,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     ztoolkit.Menu.register("collection", {
       tag: "menuitem",
       id: "replication-checker-collection-menu",
-      label: "Check for Replications",
+      label: Zotero.getString("replication-checker-context-menu"),
       commandListener: () => {
         replicationChecker.checkSelectedCollection();
       },

@@ -6,6 +6,7 @@
 import { replicationChecker } from "./modules/replicationChecker";
 import { config } from "../package.json";
 import { createZToolkit } from "./utils/ztoolkit";
+import { localizationManager } from "./utils/localization";
 
 const ztoolkit = createZToolkit();
 
@@ -19,8 +20,14 @@ export async function onStartup() {
   Zotero.debug("[ReplicationChecker] Starting up...");
 
   try {
-    // Initialize the replication checker plugin
+    // Initialize localization
     const rootURI = `chrome://${config.addonRef}/content/`;
+    const localeFileUri = `chrome://${config.addonRef}/locale/en-US/replicationChecker-replication-checker.ftl`;
+    await localizationManager.loadLocalization(localeFileUri);
+    localizationManager.initializeStringOverride();
+    Zotero.debug("[ReplicationChecker] Localization initialized");
+
+    // Initialize the replication checker plugin
     await replicationChecker.init(rootURI);
 
     // Register preference pane

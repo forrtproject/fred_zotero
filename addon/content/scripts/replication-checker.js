@@ -518,7 +518,7 @@ async addReplicationsToFolder(itemID, replications) {
       replicationCollection = new Zotero.Collection();
       replicationCollection.libraryID = libraryID;
       replicationCollection.name = "Replication folder";
-      await replicationCollection.save();
+      await replicationCollection.saveTx();
       Zotero.debug(`Created new "Replication folder" collection in library ${libraryID}`);
     }
 

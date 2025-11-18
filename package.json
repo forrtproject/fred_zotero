@@ -1,0 +1,65 @@
+{
+  "name": "zotero-replication-checker",
+  "type": "module",
+  "version": "0.3.0",
+  "description": "Privacy-preserving Zotero plugin for checking item replications in research",
+  "config": {
+    "addonName": "Zotero Replication Checker",
+    "addonID": "replication-checker@forrt.org",
+    "addonRef": "replicationChecker",
+    "addonInstance": "ReplicationChecker",
+    "prefsPrefix": "extensions.zotero.replication-checker"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forrtproject/fred_zotero.git"
+  },
+  "author": "FORRT Project",
+  "bugs": {
+    "url": "https://github.com/forrtproject/fred_zotero/issues"
+  },
+  "homepage": "https://github.com/forrtproject/fred_zotero#readme",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "start": "zotero-plugin serve",
+    "build": "zotero-plugin build && tsc --noEmit",
+    "lint:check": "prettier --check . && eslint .",
+    "lint:fix": "prettier --write . && eslint . --fix",
+    "release": "zotero-plugin release",
+    "test": "zotero-plugin test",
+    "update-deps": "npm update --save"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "zotero-plugin-toolkit": "^5.1.0-beta.4"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.2",
+    "@types/crypto-js": "^4.2.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.2.0",
+    "@zotero-plugin/eslint-config": "^0.6.7",
+    "chai": "^5.2.1",
+    "eslint": "^9.32.0",
+    "mocha": "^11.7.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "zotero-plugin-scaffold": "^0.8.0",
+    "zotero-types": "^4.1.0-beta.1"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf",
+    "overrides": [
+      {
+        "files": [
+          "*.xhtml"
+        ],
+        "options": {
+          "htmlWhitespaceSensitivity": "css"
+        }
+      }
+    ]
+  }
+}

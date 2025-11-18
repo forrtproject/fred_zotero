@@ -13,7 +13,10 @@
   // Load dependencies in order
   Services.scriptloader.loadSubScript(rootURI + 'content/scripts/crypto-js.min.js');
   ReplicationChecker.log("✓ CryptoJS loaded");
-  
+
+  Services.scriptloader.loadSubScript(rootURI + 'content/scripts/preferences.js');
+  ReplicationChecker.log("✓ Preferences loaded");
+
   Services.scriptloader.loadSubScript(rootURI + 'content/scripts/zotero-integration.js');
   ReplicationChecker.log("✓ Zotero integration loaded");
   

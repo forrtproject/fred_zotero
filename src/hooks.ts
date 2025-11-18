@@ -1,0 +1,126 @@
+/**
+ * Lifecycle hooks for Replication Checker plugin
+ * Handles startup, window loading, and shutdown events
+ */
+
+import { replicationChecker } from "./modules/replicationChecker";
+import { config } from "../package.json";
+
+export async function onStartup() {
+  await Promise.all([
+    Zotero.initializationPromise,
+    Zotero.unlockPromise,
+    Zotero.uiReadyPromise,
+  ]);
+
+  Zotero.debug("[ReplicationChecker] Starting up...");
+
+  try {
+    // Initialize the replication checker plugin
+    const rootURI = `chrome://${config.addonRef}/content/`;
+    await replicationChecker.init(rootURI);
+
+    // Register preference pane
+    Zotero.PreferencePanes.register({
+      pluginID: config.addonID,
+      src: rootURI + "preferences.xhtml",
+      label: config.addonName,
+      image: rootURI + "icons/favicon@0.5x.png",
+    });
+
+    Zotero.debug("[ReplicationChecker] Preference pane registered");
+
+    // Setup UI for all existing windows
+    const mainWindows = Zotero.getMainWindows();
+    for (const win of mainWindows) {
+      try {
+        await onMainWindowLoad(win);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        Zotero.logError(new Error(`[ReplicationChecker] Error loading window: ${errorMsg}`));
+      }
+    }
+
+    // Mark as initialized
+    addon.data.initialized = true;
+    Zotero.debug("[ReplicationChecker] Startup complete");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    Zotero.logError(new Error(`[ReplicationChecker] Startup failed: ${errorMsg}`));
+    throw error;
+  }
+}
+
+export async function onMainWindowLoad(win: Window) {
+  Zotero.debug("[ReplicationChecker] Loading main window");
+
+  try {
+    // Create Tools menu item
+    const toolsMenu = win.document.getElementById("menu_ToolsPopup");
+    if (toolsMenu) {
+      const toolsMenuItem = win.document.createXULElement("menuitem");
+      toolsMenuItem.id = "replication-checker-tools-menu";
+      toolsMenuItem.setAttribute("label", "Check Library for Replications");
+      toolsMenuItem.addEventListener("command", () => {
+        replicationChecker.checkEntireLibrary();
+      });
+      toolsMenu.appendChild(toolsMenuItem);
+    }
+
+    // Create Item context menu item
+    const itemPopup = win.document.getElementById("zotero-itemmenu-popup");
+    if (itemPopup) {
+      const itemMenuItem = win.document.createXULElement("menuitem");
+      itemMenuItem.id = "replication-checker-item-menu";
+      itemMenuItem.setAttribute("label", "Check for Replications");
+      itemMenuItem.addEventListener("command", () => {
+        replicationChecker.checkSelectedItems();
+      });
+      itemPopup.appendChild(itemMenuItem);
+    }
+
+    // Create Collection context menu item
+    const collectionPopup = win.document.getElementById("zotero-collectionmenu-popup");
+    if (collectionPopup) {
+      const collMenuItem = win.document.createXULElement("menuitem");
+      collMenuItem.id = "replication-checker-collection-menu";
+      collMenuItem.setAttribute("label", "Check for Replications");
+      collMenuItem.addEventListener("command", () => {
+        replicationChecker.checkSelectedCollection();
+      });
+      collectionPopup.appendChild(collMenuItem);
+    }
+
+    Zotero.debug("[ReplicationChecker] Main window UI setup complete");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    Zotero.logError(new Error(`[ReplicationChecker] Error setting up window UI: ${errorMsg}`));
+  }
+}
+
+export async function onMainWindowUnload(win: Window) {
+  Zotero.debug("[ReplicationChecker] Unloading main window");
+  // Cleanup is handled by shutdown
+}
+
+export async function onShutdown() {
+  Zotero.debug("[ReplicationChecker] Shutting down...");
+
+  try {
+    // Cleanup plugin resources
+    replicationChecker.shutdown();
+
+    addon.data.alive = false;
+    Zotero.debug("[ReplicationChecker] Shutdown complete");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    Zotero.logError(new Error(`[ReplicationChecker] Error during shutdown: ${errorMsg}`));
+  }
+}
+
+export default {
+  onStartup,
+  onMainWindowLoad,
+  onMainWindowUnload,
+  onShutdown,
+};

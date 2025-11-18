@@ -33,6 +33,7 @@ cd addon
 zip -r ../replication-checker.xpi \
   bootstrap.js \
   manifest.json \
+  prefs.js \
   content/ \
   locale/ \
   data/ \

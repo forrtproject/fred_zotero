@@ -15,7 +15,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   ].getService(Components.interfaces.amIAddonManagerStartup);
   var manifestURI = Services.io.newURI(rootURI + "manifest.json");
   chromeHandle = aomStartup.registerChrome(manifestURI, [
-    ["content", "replicationChecker", rootURI + "content/"],
+    ["content", "__addonRef__", rootURI + "content/"],
   ]);
 
   /**
@@ -28,18 +28,18 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   ctx._globalThis = ctx;
 
   Services.scriptloader.loadSubScript(
-    `${rootURI}/content/scripts/replicationChecker.js`,
+    `${rootURI}/content/scripts/__addonRef__.js`,
     ctx,
   );
-  await Zotero.ReplicationChecker.hooks.onStartup();
+  await Zotero.__addonInstance__.hooks.onStartup();
 }
 
 async function onMainWindowLoad({ window }, reason) {
-  await Zotero.ReplicationChecker?.hooks.onMainWindowLoad(window);
+  await Zotero.__addonInstance__?.hooks.onMainWindowLoad(window);
 }
 
 async function onMainWindowUnload({ window }, reason) {
-  await Zotero.ReplicationChecker?.hooks.onMainWindowUnload(window);
+  await Zotero.__addonInstance__?.hooks.onMainWindowUnload(window);
 }
 
 async function shutdown({ id, version, resourceURI, rootURI }, reason) {
@@ -47,7 +47,7 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
     return;
   }
 
-  await Zotero.ReplicationChecker?.hooks.onShutdown();
+  await Zotero.__addonInstance__?.hooks.onShutdown();
 
   if (chromeHandle) {
     chromeHandle.destruct();

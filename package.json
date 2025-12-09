@@ -18,7 +18,7 @@
   "bugs": {
     "url": "https://github.com/forrtproject/fred_zotero/issues"
   },
-  "homepage": "https://github.com/forrtproject/fred_zotero#readme",
+  "homepage": "https://forrtproject.github.io/fred_zotero/",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "start": "zotero-plugin serve",

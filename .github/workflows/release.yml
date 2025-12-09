@@ -3,13 +3,13 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Trigger on version tags like v0.3.0, v1.0.0, etc.
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., v0.2.0)'
+        description: 'Release version (e.g., v0.3.0)'
         required: true
-        default: 'v0.2.0'
+        default: 'v0.3.0'
 
 permissions:
   contents: write
@@ -17,159 +17,169 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Get version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-        else
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        fi
-        VERSION_NUM=$(echo "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref }}" | sed 's/refs\/tags\///' | sed 's/^v//')
-        echo "VERSION_NUM=$VERSION_NUM" >> $GITHUB_OUTPUT
-    
-    - name: Update manifest.json version
-      run: |
-        VERSION_NUM="${{ steps.version.outputs.VERSION_NUM }}"
-        
-        # Update version in addon/manifest.json
-        sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM\"/" addon/manifest.json
-        
-        echo "Updated addon/manifest.json to version $VERSION_NUM"
-        grep "\"version\":" addon/manifest.json
-    
-    - name: Build XPI
-      run: |
-        echo "Building XPI from addon/ folder..."
-        cd addon
-        zip -r ../replication-checker.xpi \
-          bootstrap.js \
-          manifest.json \
-          content/ \
-          locale/ \
-          data/ \
-          -x "*.DS_Store" \
-          -x "*/__pycache__/*"
-        cd ..
-        
-        echo "Build complete!"
-    
-    - name: Verify build
-      run: |
-        echo "Build verification:"
-        ls -lh replication-checker.xpi
-        
-        echo ""
-        echo "XPI contents:"
-        unzip -l replication-checker.xpi | head -30
-    
-    - name: Rename XPI with version
-      run: |
-        VERSION="${{ steps.version.outputs.VERSION }}"
-        cp replication-checker.xpi "replication-checker-${VERSION}.xpi"
-        echo "XPI_NAME=replication-checker-${VERSION}.xpi" >> $GITHUB_ENV
-    
-    - name: Create update.json
-      run: |
-        VERSION_NUM="${{ steps.version.outputs.VERSION_NUM }}"
-        VERSION="${{ steps.version.outputs.VERSION }}"
-        
-        cat > update.json << EOF
-        {
-          "addons": {
-            "replication-checker@forrt.org": {
-              "updates": [
-                {
-                  "version": "$VERSION_NUM",
-                  "update_link": "https://github.com/forrtproject/fred_zotero/releases/download/${VERSION}/replication-checker-${VERSION}.xpi",
-                  "applications": {
-                    "zotero": {
-                      "strict_min_version": "7.0",
-                      "strict_max_version": "8.*"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get version from package.json
+        id: package_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Package version: v${VERSION}"
+
+      - name: Determine release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ steps.package_version.outputs.VERSION }}"
+          fi
+          VERSION_NUM=$(echo "$VERSION" | sed 's/^v//')
+
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=$VERSION_NUM" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION (numeric: $VERSION_NUM)"
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Verify build
+        run: |
+          echo "Build verification:"
+          XPI_FILE=$(ls .scaffold/build/*.xpi)
+          ls -lh "$XPI_FILE"
+
+          echo ""
+          echo "XPI contents (first 50 files):"
+          unzip -l "$XPI_FILE" | head -55
+
+      - name: Rename XPI with version
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          XPI_SOURCE=$(ls .scaffold/build/*.xpi)
+          XPI_NAME="zotero-replication-checker-${VERSION}.xpi"
+
+          cp "$XPI_SOURCE" "$XPI_NAME"
+          echo "XPI_NAME=$XPI_NAME" >> $GITHUB_ENV
+          echo "Created: $XPI_NAME"
+
+      - name: Create update.json
+        run: |
+          VERSION_NUM="${{ steps.version.outputs.VERSION_NUM }}"
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          cat > update.json << EOF
+          {
+            "addons": {
+              "replication-checker@forrt.org": {
+                "updates": [
+                  {
+                    "version": "$VERSION_NUM",
+                    "update_link": "https://github.com/forrtproject/fred_zotero/releases/download/${VERSION}/zotero-replication-checker-${VERSION}.xpi",
+                    "applications": {
+                      "zotero": {
+                        "strict_min_version": "7.0",
+                        "strict_max_version": "8.*"
+                      }
                     }
                   }
-                }
-              ]
+                ]
+              }
             }
           }
-        }
-        EOF
-        
-        echo "Created update.json:"
-        cat update.json
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: ${{ steps.version.outputs.VERSION }}
-        name: Release ${{ steps.version.outputs.VERSION }}
-        draft: false
-        prerelease: ${{ contains(steps.version.outputs.VERSION, 'beta') || contains(steps.version.outputs.VERSION, 'alpha') }}
-        generate_release_notes: true
-        body: |
-          ## Zotero Replication Checker ${{ steps.version.outputs.VERSION }}
-          
-          Privacy-first plugin to discover replications from the FORRT Replication Database (FReD).
-          
-          ### Installation
-          
-          1. Download `${{ env.XPI_NAME }}` below
-          2. In Zotero: **Tools → Plugins** (or **Tools → Add-ons**)
-          3. Click gear icon ⚙️ → **Install Plugin From File**
-          4. Select the downloaded XPI
-          5. Restart Zotero
-          
-          ### Features
-          
-          - **Check Library for Replications** - Scan your entire library for studies that have been replicated
-          - **Check Selected Items** - Check individual items for replication attempts
-          - **Automatic Tagging** - Items with replications get tagged as "Has Replication"
-          - **Detailed Notes** - Replication details are added as child notes with:
-            - Replication study title, authors, and year
-            - Direct DOI links to replication papers
-            - Replication outcomes (when available)
-          - **Privacy-First Design** - Uses hash prefixes to query the database without exposing your DOIs
-          - **FORRT Replication Database (FReD)** - Powered by the comprehensive FReD database
-          
-          ### Requirements
-          
-          - Zotero 7.0 or later
-          - Items must have DOIs to be checked
-          
-          ### Menu Items
-          
-          **Tools Menu:**
-          - Check Library for Replications - Scan all items in your library
-          
-          **Right-click Context Menu:**
-          - Check for Replications - Check selected item(s)
-          
-          ### Troubleshooting
-          
-          If you encounter issues:
-          1. Enable debug output: **Help → Debug Output Logging → Enable**
-          2. View output: **Help → Debug Output Logging → View Output**
-          3. Look for messages starting with "ReplicationChecker:"
-          4. Report issues at: https://github.com/forrtproject/fred_zotero/issues
-          
-          ### Credits
-          
-          - **FORRT Project** - For the amazing Replication Database
-          - **FReD Team** - For maintaining the replication data
-          - Built with privacy in mind using hash-based lookup
-          
-          ---
-          
-          **Download the XPI file below to install the plugin.**
-          
-          For automatic updates, this release is registered in `update.json`.
-        files: |
-          ${{ env.XPI_NAME }}
-          update.json
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EOF
+
+          echo "Created update.json:"
+          cat update.json
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, 'beta') || contains(steps.version.outputs.VERSION, 'alpha') }}
+          generate_release_notes: true
+          body: |
+            ## Zotero Replication Checker ${{ steps.version.outputs.VERSION }}
+
+            Privacy-first plugin to discover replications from the FORRT Replication Database (FReD).
+
+            ### ✨ New in This Release
+
+            Check the release notes below for all changes.
+
+            ### 📥 Installation
+
+            1. Download `${{ env.XPI_NAME }}` below
+            2. In Zotero: **Tools → Add-ons** (or **Edit → Settings → Advanced → Settings Editor**)
+            3. Click gear icon ⚙️ → **Install Add-on From File**
+            4. Select the downloaded XPI file
+            5. Restart Zotero
+
+            ### 🎯 Features
+
+            - ✅ **3-Screen Interactive Onboarding** - Get started with a guided tour
+            - ✅ **User Guide in Help Menu** - Access onboarding anytime from Help → Replication Checker User Guide
+            - ✅ **Auto-Tag Replication Studies** - Items added to library are tagged "Added by Replication Checker"
+            - ✅ **Check Entire Library** - Scan all items via Tools menu
+            - ✅ **Check Collections** - Right-click any collection to check for replications
+            - ✅ **Check Individual Items** - Right-click items to check selected ones
+            - ✅ **Automatic Tagging** - Original studies get "Has Replication" tag with outcome tags
+            - ✅ **Detailed Notes** - Replication info added as child notes with DOI links
+            - ✅ **Privacy-First Design** - Hash-based lookup protects your DOIs
+            - ✅ **Auto-Cleanup** - Preferences cleared on uninstall
+
+            ### ⚙️ Configuration
+
+            **Settings:** Edit → Settings → Replication Checker
+            - Auto-check frequency (disabled/daily/weekly/monthly)
+            - Auto-check newly added items
+
+            **Menu Locations:**
+            - **Tools** → Check Current Library for Replications
+            - **Help** → Replication Checker User Guide
+            - **Right-click** items/collections → Check for Replications
+
+            ### 📋 Requirements
+
+            - Zotero 7.0 or later
+            - Items must have DOIs to be checked
+            - Internet connection for API queries
+
+            ### 🐛 Troubleshooting
+
+            If you encounter issues:
+            1. **Help** → **Debug Output Logging** → **View Output**
+            2. Look for messages starting with `[ReplicationChecker]:`
+            3. Report issues at: https://github.com/forrtproject/fred_zotero/issues
+
+            ### 🙏 Credits
+
+            - **FORRT Project** - For the comprehensive Replication Database
+            - **FReD Team** - For maintaining the replication data
+            - **Contributors** - Everyone who helped improve this plugin
+
+            ---
+
+            **📦 Download the XPI file below to install the plugin.**
+
+            The plugin will automatically check for updates using `update.json`.
+          files: |
+            ${{ env.XPI_NAME }}
+            update.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

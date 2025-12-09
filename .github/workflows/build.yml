@@ -11,47 +11,60 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Build XPI
-        run: |
-          echo "Building XPI from addon/ folder..."
-          cd addon
-          zip -r ../replication-checker.xpi \
-            bootstrap.js \
-            manifest.json \
-            content/ \
-            locale/ \
-            data/ \
-            -x "*.DS_Store" \
-            -x "*/__pycache__/*"
-          cd ..
-          
-          echo "Build complete!"
-      
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
       - name: Verify build
         run: |
-          echo "XPI created successfully!"
-          ls -lh replication-checker.xpi
-          
+          echo "Build verification:"
+          ls -lh .scaffold/build/*.xpi
+
           echo ""
-          echo "XPI contents (first 30 files):"
-          unzip -l replication-checker.xpi | head -35
-          
+          echo "XPI contents (first 50 files):"
+          unzip -l .scaffold/build/*.xpi | head -55
+
           echo ""
           echo "Critical files check:"
-          unzip -l replication-checker.xpi | grep -E "(bootstrap.js|manifest.json|index.js)"
-          
+          unzip -l .scaffold/build/*.xpi | grep -E "(bootstrap.js|manifest.json|replicationChecker.js)"
+
           echo ""
           echo "XPI size:"
-          du -h replication-checker.xpi
-      
-      - name: Upload XPI artifact
+          du -h .scaffold/build/*.xpi
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: replication-checker-xpi
-          path: replication-checker.xpi
+          name: zotero-replication-checker-build-${{ github.sha }}
+          path: .scaffold/build/*.xpi
           retention-days: 30
+
+      - name: Add build info comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const xpiPath = fs.readdirSync('.scaffold/build/').find(f => f.endsWith('.xpi'));
+            const xpiSize = fs.statSync(`.scaffold/build/${xpiPath}`).size;
+            const sizeMB = (xpiSize / 1024 / 1024).toFixed(2);
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Build successful!\n\n**Artifact:** \`${xpiPath}\`\n**Size:** ${sizeMB} MB\n\nDownload from the artifacts section above.`
+            });

@@ -27,16 +27,16 @@ echo ""
 echo "Cleaning old XPI..."
 rm -f replication-checker.xpi
 
-# Create XPI from addon/ folder with explicit inclusion of zotero-plugin.png
+# Create XPI from addon/ folder
 echo "Creating XPI from addon/ folder..."
 cd addon
 zip -r ../replication-checker.xpi \
   bootstrap.js \
   manifest.json \
+  prefs.js \
   content/ \
   locale/ \
   data/ \
-  content/icons/zotero-plugin.png \
   -x "*.DS_Store" \
   -x "*/__pycache__/*"
 
@@ -58,7 +58,7 @@ unzip -l replication-checker.xpi | head -25
 
 echo ""
 echo "Critical files check:"
-unzip -l replication-checker.xpi | grep -E "(bootstrap.js|manifest.json|index.js|zotero-plugin.png)" | head -5
+unzip -l replication-checker.xpi | grep -E "(bootstrap.js|manifest.json|index.js)" | head -5
 
 echo ""
 echo "========================================"

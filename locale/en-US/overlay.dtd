@@ -1,4 +1,0 @@
-<!-- <!ENTITY replication-checker.checkLibrary "Check Library for Replications">
-<!ENTITY replication-checker.checkSelected "Check for Replications"> -->
-!ENTITY checkForReplications.label "Check for Replications">
-<!ENTITY replicationsFolder.label "Replications (FReD)">

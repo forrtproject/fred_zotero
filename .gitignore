@@ -48,10 +48,10 @@ yarn.lock
 # Build artifacts
 build/
 dist/
+.scaffold/
 *.log
 
 # Test files
-test/
 tests/
 *.test.js
 

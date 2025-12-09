@@ -1,0 +1,10 @@
+{
+  "extends": "zotero-types/entries/sandbox/",
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["src", "typings"],
+  "exclude": ["build", "addon", ".scaffold"]
+}

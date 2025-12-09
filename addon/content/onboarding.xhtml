@@ -1,0 +1,115 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/zotero.css" type="text/css"?>
+
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        id="replication-checker-onboarding"
+        title="Replication Checker - Getting Started"
+        width="600"
+        height="500">
+
+  <script src="chrome://zotero/content/include.js"/>
+  <script>
+    <![CDATA[
+      let screens = [];
+      let currentScreen = 0;
+      let onComplete;
+      let triggerHighlight;
+      let clearHighlights;
+
+      function init() {
+        const args = window.arguments[0];
+        screens = args.screens;
+        onComplete = args.onComplete;
+        triggerHighlight = args.triggerHighlight;
+        clearHighlights = args.clearHighlights;
+        currentScreen = 0;
+        updateScreen();
+      }
+
+      function updateScreen() {
+        const screen = screens[currentScreen];
+
+        document.getElementById("onboarding-title").textContent = screen.title;
+        document.getElementById("onboarding-content").textContent = screen.content;
+        document.getElementById("onboarding-progress").textContent = `${currentScreen + 1}/${screens.length}`;
+
+        // Update button states
+        document.getElementById("btn-previous").disabled = currentScreen === 0;
+
+        const nextBtn = document.getElementById("btn-next");
+        if (currentScreen === screens.length - 1) {
+          nextBtn.label = "Get Started";
+        } else {
+          nextBtn.label = "Next";
+        }
+
+        // Trigger interactive highlight if available
+        if (triggerHighlight) {
+          triggerHighlight(currentScreen);
+        }
+      }
+
+      function onNext() {
+        if (currentScreen === screens.length - 1) {
+          if (clearHighlights) {
+            clearHighlights();
+          }
+          onComplete(true);
+          window.close();
+        } else {
+          currentScreen++;
+          updateScreen();
+        }
+      }
+
+      function onPrevious() {
+        if (currentScreen > 0) {
+          currentScreen--;
+          updateScreen();
+        }
+      }
+
+      function onSkip() {
+        if (clearHighlights) {
+          clearHighlights();
+        }
+        onComplete(false);
+        window.close();
+      }
+
+      window.addEventListener("load", init);
+    ]]>
+  </script>
+
+  <vbox flex="1" style="padding: 20px;">
+    <!-- Header -->
+    <hbox align="center" style="margin-bottom: 20px;">
+      <html:div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+        <html:span style="font-size: 32px;">🔍</html:span>
+      </html:div>
+      <vbox flex="1">
+        <label id="onboarding-title" style="font-size: 18px; font-weight: bold; margin-bottom: 4px;">Welcome</label>
+        <label id="onboarding-progress" style="font-size: 12px; color: #666;">1/3</label>
+      </vbox>
+    </hbox>
+
+    <!-- Content -->
+    <separator class="thin"/>
+    <scrollbox flex="1" style="padding: 20px 0; max-height: 300px; overflow-y: auto;">
+      <description id="onboarding-content" style="font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+        Loading...
+      </description>
+    </scrollbox>
+    <separator class="thin"/>
+
+    <!-- Footer Buttons -->
+    <hbox align="center" style="margin-top: 20px;">
+      <button id="btn-skip" label="Skip Tour" oncommand="onSkip()" style="margin-right: auto;"/>
+      <button id="btn-previous" label="Previous" oncommand="onPrevious()" disabled="true"/>
+      <button id="btn-next" label="Next" oncommand="onNext()" default="true"/>
+    </hbox>
+  </vbox>
+
+</window>

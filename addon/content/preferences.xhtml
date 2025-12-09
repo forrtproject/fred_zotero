@@ -1,0 +1,49 @@
+<groupbox>
+  <label>
+    <html:h2>Auto-Check Library for Replications</html:h2>
+  </label>
+
+  <html:p style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
+    Automatically check your library for replication studies at regular intervals
+  </html:p>
+
+  <radiogroup preference="extensions.zotero.replication-checker.autoCheckFrequency" default="monthly">
+    <radio
+      id="autocheck-disabled"
+      label="Disabled (manual checking only)"
+      value="disabled"
+    />
+
+    <radio
+      id="autocheck-daily"
+      label="Daily (check every 24 hours)"
+      value="daily"
+    />
+
+    <radio
+      id="autocheck-weekly"
+      label="Weekly (check every 7 days)"
+      value="weekly"
+    />
+
+    <radio
+      id="autocheck-monthly"
+      label="Monthly (check every 30 days)"
+      value="monthly"
+    />
+  </radiogroup>
+
+  <checkbox
+    id="autocheck-new-items"
+    preference="extensions.zotero.replication-checker.autoCheckNewItems"
+    label="Automatically check newly added library items (recommended)"
+  />
+
+  <html:p style="margin-top: 8px; font-size: 0.85em; color: #999;">
+    Disable this option if you prefer to run all replication checks manually.
+  </html:p>
+
+  <html:p style="margin-top: 15px; font-size: 0.85em; color: #999;">
+    <html:strong>Note:</html:strong> Auto-check runs in the background when Zotero is open. You can still manually check using the Tools menu.
+  </html:p>
+</groupbox>

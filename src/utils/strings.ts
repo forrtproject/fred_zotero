@@ -19,6 +19,7 @@ export const strings = {
   "replication-checker-progress-complete": "Check Complete",
   "replication-checker-progress-failed": "Check Failed",
   "replication-checker-progress-match-count": "Found { $count } item(s) with replications",
+  "replication-checker-progress-copying-readonly": "Copying items from read-only library to Personal library...",
 
   // Alerts
   "replication-checker-alert-title": "Zotero Replication Checker",
@@ -41,6 +42,10 @@ export const strings = {
   "replication-checker-dialog-progress-title": "Replication Information Added",
   "replication-checker-dialog-progress-line": "Added replication information to \"{ $title }\"",
 
+  // Read-Only Library Handling
+  "replication-checker-readonly-dialog-title": "Read-Only Library Detected",
+  "replication-checker-readonly-dialog-message": "This library is read-only. We found { $itemCount } item(s) with { $replicationCount } replication(s).\n\nWould you like to copy the original articles and their replications to your Personal library's \"Replication folder\"?",
+
   // Results Messages
   "replication-checker-results-title-library": "Library Scan Complete",
   "replication-checker-results-title-selected": "Selected Items Scan Complete",
@@ -53,10 +58,12 @@ export const strings = {
 
   // Tags
   "replication-checker-tag": "Has Replication",
-  "replication-checker-tag-is-replication": "Added by Replication Checker",
+  "replication-checker-tag-is-replication": "Is Replication",
+  "replication-checker-tag-added-by-checker": "Added by Replication Checker",
   "replication-checker-tag-success": "Replication: Successful",
   "replication-checker-tag-failure": "Replication: Failure",
   "replication-checker-tag-mixed": "Replication: Mixed",
+  "replication-checker-tag-readonly-origin": "Original present in Read-Only Library",
 
   // Note Template
   "replication-checker-note-title": "Replications Found",
@@ -91,22 +98,48 @@ export const strings = {
 
 /**
  * Get a localized string with optional parameter substitution
+ * Uses Zotero's built-in localization system to load strings from .ftl files
+ * based on the user's language preference
  */
 export function getString(key: string, params?: Record<string, string | number>): string {
-  const value = strings[key as keyof typeof strings];
+  try {
+    // Try to get the string from Zotero's localization system
+    // The strings are loaded from addon/locale/{locale}/replication-checker.ftl
+    const addon = (Zotero as any).ReplicationChecker || (globalThis as any).addon;
 
-  if (!value) {
-    Zotero.debug(`[ReplicationChecker] Missing string for key: ${key}`);
-    return key;
-  }
-
-  if (params) {
-    let result: string = value;
-    for (const [paramKey, paramValue] of Object.entries(params)) {
-      result = result.replace(new RegExp(`\\{\\s*\\$${paramKey}\\s*\\}`, 'g'), String(paramValue));
+    if (addon?.data?.locale?.current) {
+      try {
+        // Use Zotero's Localization API to format the message
+        const formatted = addon.data.locale.current.formatValueSync(key, params || {});
+        if (formatted && formatted !== key) {
+          return formatted;
+        }
+      } catch (e) {
+        // Fall through to fallback
+        Zotero.debug(`[ReplicationChecker] Locale error for key ${key}: ${e}`);
+      }
     }
-    return result;
-  }
 
-  return value as string;
+    // Fallback to hardcoded strings if localization system is not available
+    const value = strings[key as keyof typeof strings];
+
+    if (!value) {
+      Zotero.debug(`[ReplicationChecker] Missing string for key: ${key}`);
+      return key;
+    }
+
+    if (params) {
+      let result: string = value;
+      for (const [paramKey, paramValue] of Object.entries(params)) {
+        result = result.replace(new RegExp(`\\{\\s*\\$${paramKey}\\s*\\}`, 'g'), String(paramValue));
+      }
+      return result;
+    }
+
+    return value as string;
+  } catch (error) {
+    // Absolute fallback in case of any error
+    Zotero.debug(`[ReplicationChecker] Error getting string for key ${key}: ${error}`);
+    return strings[key as keyof typeof strings] || key;
+  }
 }

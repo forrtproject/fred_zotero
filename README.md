@@ -2,44 +2,55 @@
 
 A privacy-first Zotero 7 plugin that discovers replication studies for items in your library using the [FORRT Replication Database (FReD)](https://forrt.org/replication-hub/). It scans your local library for DOIs, checks against FReD using privacy-preserving prefix matching, notifies you when replications exist, and allows easy addition to your library—all without sending identifiable data off your machine.
 
-This plugin was developed as a [FORRT](https://forrt.org/) project to build a working prototype for the open science community. It helps researchers discover replication studies by identifying items with known replications and unobtrusively notifying them via tags and notes. 
+This plugin was developed as a [FORRT](https://forrt.org/) project to build a working prototype for the open science community. It helps researchers discover replication studies by identifying items with known replications and unobtrusively notifying them via tags and notes.
 
 ## Features
 
 - 🔍 **Privacy-preserving matching**: Uses hash prefixes to query the database without exposing your library contents
-- 📚 **Batch processing**: Checks entire library or selected items in one operation
-- 🏷️ **Automatic tagging**: Adds "Has Replication" tag to items with replications
+- 📚 **Batch processing**: Checks entire library, selected items, or collections in one operation
+- 📖 **Read-only library support**: Automatically detects read-only group libraries and offers to copy originals and replications to your Personal library
+- 🏷️ **Automatic tagging**: Adds contextual tags including "Has Replication", "Is Replication", and "Original present in Read-Only Library"
 - 📝 **Detailed notes**: Creates child notes with replication details (title, authors, journal, outcome, DOI)
+- 🔗 **Smart organization**: Creates separate collections for originals from read-only libraries and their replications
+- 🔄 **Bidirectional linking**: Automatically links original studies with their replications as related items
+- 🌍 **Multi-language support**: Available in English and German, with easy localization for additional languages
 - ⚡ **Fast**: Efficient hash-based lookup with collision handling
 
 ## Installation
 
 ### Prerequisites
 
-Zotero version 7 or later. Guidance on installation and updating for Zotero is available here: https://www.zotero.org/support/installation
+Zotero version 7 or later. Guidance on installation and updating for Zotero is available at <https://www.zotero.org/support/installation>
 
 ### From XPI File
 
-1. Download `replication-checker.xpi`
-2. Open Zotero version 7 +
-3. Go to **Tools → Plugins**
-4. Click the gear icon → **Install Plugin From File**
-5. Select `replication-checker.xpi`
+1. Download the latest `zotero-replication-checker.xpi` from releases
+2. Open Zotero version 7+
+3. Go to **Tools → Add-ons**
+4. Click the gear icon (⚙️) → **Install Add-on From File**
+5. Select `zotero-replication-checker.xpi`
 6. Restart Zotero
 
 ### From Source
 
-For Windows
+**Prerequisites:**
+
+- Node.js v22.17.0 (or compatible version)
+- npm 10.9.2+
+
+**Build steps:**
+
 ```bash
-./build.bat
+# Install dependencies
+npm install
+
+# Build the plugin
+npm run build
 ```
 
-For macOS
-```bash
-./build.sh
-```
+The built XPI file will be at `.scaffold/build/zotero-replication-checker.xpi`
 
-Then install the generated replication-checker.xpi
+Then install the generated XPI file following the steps above.
 
 ## Usage
 
@@ -51,11 +62,29 @@ Then install the generated replication-checker.xpi
 
 The command scans whichever library is currently selected in Zotero (personal, group, etc.).
 
+**For editable libraries:**
+
+- Original items get "Has Replication" tag and a replication note
+- Replication items are added to "Replication folder" collection
+- Items are automatically linked as related items
+
+**For read-only group libraries:**
+
+- Plugin detects the library is read-only
+- Shows a confirmation dialog with the count of items with replications
+- If you accept:
+  - Original items are copied to a new collection named `{LibraryName} [Read-Only]` in your Personal library
+  - Replication items are copied to "Replication folder" in your Personal library
+  - Both originals and replications get tagged with "Original present in Read-Only Library"
+  - All items are linked bidirectionally and replication notes are added
+
 ### Check Selected Items or Collections
 
 1. Select one or more items in your library or collections
 2. Right-click → **Check for Replications**
 3. Selected items will be checked and tagged if replications are found
+
+This works for both editable and read-only libraries, with the same behavior as library-wide checks.
 
 ### Check Newly Added Items
 
@@ -82,13 +111,39 @@ Open **Zotero → Preferences → Advanced → Replication Checker** to configur
 ### What Gets Added to Zotero Items
 
 When a replication is found:
-- **Tag**: "Has Replication" (easily filter your library)
-- **Note**: Child note with:
+
+**For editable libraries:**
+
+- **Tags on original items**:
+  - "Has Replication" (easily filter your library)
+  - Outcome tags: "Replication: Successful", "Replication: Failure", or "Replication: Mixed"
+- **Tags on replication items**:
+  - "Is Replication"
+- **Note**: Child note on original item with:
   - Replication title
   - Authors and year
   - Journal
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
+- **Collections**:
+  - Replication items added to "Replication folder"
+- **Related items**: Bidirectional links between originals and replications
+
+**For read-only libraries:**
+
+- **Tags on copied original items**:
+  - "Has Replication"
+  - "Original present in Read-Only Library"
+  - Outcome tags
+- **Tags on replication items**:
+  - "Is Replication"
+  - "Added by Replication Checker"
+  - "Original present in Read-Only Library"
+- **Collections**:
+  - Original items added to `{LibraryName} [Read-Only]` collection in Personal library
+  - Replication items added to "Replication folder" in Personal library
+- **Note**: Same replication note structure as editable libraries
+- **Related items**: Bidirectional links maintained
 
 > **Note:** The replication note is automatically maintained by the plugin. Manual edits may be overwritten the next time the item is checked.
 
@@ -104,7 +159,28 @@ Some studies are linked to a separate URL. This happens in two cases:
 
 ## Data Source
 
-Currently uses a live API endpoint (https://rep-api.forrt.org/v1/prefix-lookup) to query the FORRT Replication Database (FReD) for up-to-date replication studies. The API returns candidates based on 3-character MD5 hash prefixes, ensuring privacy by not requiring full DOIs.
+Currently uses a live API endpoint (<https://rep-api.forrt.org/v1/prefix-lookup>) to query the FORRT Replication Database (FReD) for up-to-date replication studies. The API returns candidates based on 3-character MD5 hash prefixes, ensuring privacy by not requiring full DOIs.
+
+## Localization
+
+The plugin supports multiple languages and automatically uses your Zotero language preference.
+
+**Currently available languages:**
+
+- English (en-US) ✅
+- German (de) ✅
+
+**What gets translated:**
+
+- All menu items and dialogs
+- Progress messages and alerts
+- Tags (e.g., "Has Replication" → "Hat Replikation" in German)
+- Note headings and content
+- Preference panel labels
+
+**Adding new languages:**
+
+Want to use the plugin in your language? See [LOCALIZATION.md](LOCALIZATION.md) for a complete guide on adding translations. Contributing a translation is easy - just copy the English `.ftl` file and translate the strings while preserving placeholders.
 
 ## Development
 
@@ -117,37 +193,143 @@ fred_zotero/
 │   ├── content/
 │   │   ├── icons/               # Extension icons
 │   │   └── preferences.xhtml    # Preferences UI
+│   ├── locale/
+│   │   └── en-US/
+│   │       └── replication-checker.ftl  # Fluent localization strings
 │   ├── manifest.json            # Runtime manifest template
 │   └── prefs.js                 # Default preference values
 ├── src/                         # TypeScript source
-│   ├── modules/                 # Core business logic (data source, matcher, replication checker)
-│   ├── utils/                   # Zotero helpers
+│   ├── modules/
+│   │   ├── replicationChecker.ts    # Main plugin logic, library handling
+│   │   ├── dataSource.ts            # API communication (queries FReD database)
+│   │   └── batchMatcher.ts          # Privacy-preserving DOI matching logic
+│   ├── utils/
+│   │   ├── zoteroIntegration.ts     # Zotero API wrappers
+│   │   └── strings.ts               # Localization string helpers
+│   ├── types/
+│   │   └── replication.ts           # TypeScript type definitions
 │   ├── addon.ts                 # Addon class
-│   ├── hooks.ts                 # Lifecycle hooks
+│   ├── hooks.ts                 # Lifecycle hooks, UI registration
 │   └── index.ts                 # Entry point registered by bootstrap.js
-├── locale/                      # Fluent strings (to be consumed next)
-├── package.json                 # Build tooling configuration
-└── zotero-plugin.config.ts      # zotero-plugin-scaffold build config
+├── .scaffold/build/             # Output directory for built plugin
+│   └── zotero-replication-checker.xpi
+├── package.json                 # npm dependencies and build scripts
+├── tsconfig.json                # TypeScript configuration
+└── zotero-plugin.config.ts      # Zotero plugin scaffold build config
 ```
 
 ### Key Components
 
+- **`src/hooks.ts`**: Lifecycle hooks, UI registration (context menus, Tools menu)
+- **`src/modules/replicationChecker.ts`**: Main plugin logic, handles both editable and read-only libraries, manages collections and tags
+- **`src/modules/dataSource.ts`**: API communication with FReD database using privacy-preserving prefixes
+- **`src/modules/batchMatcher.ts`**: Privacy-preserving DOI matching using MD5 hash prefixes
+- **`src/utils/zoteroIntegration.ts`**: Zotero API wrappers for DOI extraction, tagging, notes
+- **`src/utils/strings.ts`**: Fluent localization string helpers
+- **`addon/locale/en-US/replication-checker.ftl`**: All user-facing strings including read-only library messages
+
+### Building the Plugin
+
+The plugin uses TypeScript and must be compiled before use:
+
+```bash
+npm run build
+```
+
+This command:
+
+1. Bundles and packs the XPI file using `zotero-plugin-scaffold`
+2. Type checks with TypeScript (errors are warnings, don't block build)
+
+**Build output:**
+
+- Success indicator: `✔ Build finished in X.XXs`
+- XPI file location: `.scaffold/build/zotero-replication-checker.xpi`
+
+**Install in Zotero:**
+
+1. Go to **Tools → Add-ons → Settings** (gear icon)
+2. Select **Install Add-on From File**
+3. Choose the XPI file
+4. Restart Zotero
+
 ### Debugging
 
-Enable Zotero debug output:
+The plugin outputs debug information to help troubleshoot issues.
+
+**Enable Zotero debug output:**
+
 1. **Help → Debug Output Logging** → Enable
 2. **Help → Show Debug Output**
-3. Look for `[ReplicationChecker]`, `[BatchMatcher]`, and related `Zotero.debug` entries from the plugin
+3. Look for `[ReplicationChecker]`, `[BatchMatcher]`, and `[APIDataSource]` entries
+
+**Open Developer Tools (for detailed console output):**
+
+1. **Tools → Developer Tools** (or `Ctrl+Shift+I` / `Cmd+Shift+I`)
+2. Click the **Console** tab
+3. Run a replication check
+4. Look for detailed logging including DOI processing, API queries, and item creation
+
+**Expected debug messages:**
+
+- `[BatchMatcher] Checking X DOIs...`
+- `[BatchMatcher] Normalized to X valid DOIs`
+- `[APIDataSource] Querying API with X prefixes`
+- `[APIDataSource] Prefix 'XXX': X entries`
+- `[BatchMatcher] Found X DOIs with replications out of X checked`
+- `[ReplicationChecker] Copied item X to library Y`
+- `[ReplicationChecker] Created "{LibraryName} [Read-Only]" collection`
 
 ## Testing
 
 ### Manual Testing
 
+**Test with editable library:**
+
+1. Add items with DOIs that have known replications (e.g., DOI: `10.1037/pspa0000073`)
+2. Run **Tools → Check Current Library for Replications**
+3. Verify:
+   - Items get "Has Replication" tag
+   - Replication note is created
+   - Replication items appear in "Replication folder"
+   - Bidirectional related items links work
+
+**Test with read-only group library:**
+
+1. Join or create a read-only group library in Zotero
+2. Add items with DOIs that have replications
+3. Run **Tools → Check Current Library for Replications**
+4. Verify:
+   - Read-only dialog appears with correct counts
+   - After accepting:
+     - Original items copied to `{LibraryName} [Read-Only]` collection in Personal library
+     - Replication items added to "Replication folder"
+     - Tags applied correctly: "Original present in Read-Only Library"
+     - Bidirectional links and notes created
+
+**Test context menu:**
+
+1. Select specific items
+2. Right-click → **Check for Replications**
+3. Verify same behavior as library-wide check
+
+**Test collection check:**
+
+1. Create a collection with items that have replications
+2. Right-click collection → **Check for Replications**
+3. Verify items in collection are processed correctly
+
 ## Roadmap
 
 - [ ] Add caching to avoid re-checking items
-- [ ] Support for checking new items automatically
+- [x] Support for checking new items automatically
+- [x] Support for read-only group libraries
+- [x] Multi-language support (English & German)
 - [ ] Export replication report
+- [ ] Batch duplicate detection to avoid creating multiple copies
+- [ ] Option to customize collection names
+- [ ] Additional language translations (French, Spanish, etc.)
 
 ## Feedback
-Do you have feedback for us? Open an issue here if you encounter bugs or documentation issues. You can also contact us anonymously about the Replication Checker Plug [here](https://tinyurl.com/y5evebv9).
+
+Do you have feedback for us? Open an issue here if you encounter bugs or documentation issues. You can also [contact us anonymously about the Replication Checker](https://tinyurl.com/y5evebv9).

@@ -21,8 +21,35 @@ export async function onStartup() {
   Zotero.debug("[ReplicationChecker] Starting up...");
 
   try {
-    // Initialize the replication checker plugin
+    // Initialize localization
     const rootURI = `chrome://${config.addonRef}/content/`;
+
+    // Load locale bundle using Zotero's Localization API
+    const locale = Zotero.locale || "en-US";
+    const localeURI = `${rootURI}locale/${locale}/${config.addonRef}-replication-checker.ftl`;
+
+    try {
+      // Try to load the localized .ftl file
+      const L10n = new (Zotero as any).Localization([localeURI], true);
+      addon.data.locale = { current: L10n };
+      Zotero.debug(`[ReplicationChecker] Locale loaded: ${locale}`);
+    } catch (e) {
+      // Fallback to English if locale not available
+      try {
+        const fallbackURI = `${rootURI}locale/en-US/${config.addonRef}-replication-checker.ftl`;
+        const L10n = new (Zotero as any).Localization([fallbackURI], true);
+        addon.data.locale = { current: L10n };
+        Zotero.debug(`[ReplicationChecker] Fallback to en-US locale`);
+      } catch (fallbackError) {
+        Zotero.debug(`[ReplicationChecker] Could not load locale files, using hardcoded strings`);
+        addon.data.locale = { current: null };
+      }
+    }
+
+    // Expose addon globally for getString to access
+    (Zotero as any).ReplicationChecker = addon;
+
+    // Initialize the replication checker plugin
     await replicationChecker.init(rootURI);
 
     // Register preference pane
@@ -30,7 +57,7 @@ export async function onStartup() {
       pluginID: config.addonID,
       src: rootURI + "preferences.xhtml",
       label: config.addonName,
-      image: rootURI + "icons/zotero-plugin.png",
+      image: rootURI + "icons/favicon.png",
     });
 
     Zotero.debug("[ReplicationChecker] Preference pane registered");
@@ -65,6 +92,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-tools-menu",
       label: getString("replication-checker-tools-menu"),
+      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       commandListener: () => {
         replicationChecker.checkEntireLibrary();
       },
@@ -76,6 +104,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-help-guide",
       label: "Replication Checker User Guide",
+      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       commandListener: async () => {
         Zotero.debug("[ReplicationChecker] Opening user guide");
         await onboardingManager.showOnboarding();
@@ -88,6 +117,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-item-menu",
       label: getString("replication-checker-context-menu"),
+      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       commandListener: () => {
         replicationChecker.checkSelectedItems();
       },
@@ -99,6 +129,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-collection-menu",
       label: getString("replication-checker-context-menu"),
+      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       commandListener: () => {
         replicationChecker.checkSelectedCollection();
       },
@@ -183,6 +214,9 @@ export async function onShutdown() {
   try {
     // Cleanup plugin resources
     replicationChecker.shutdown();
+
+    // Cleanup global reference
+    delete (Zotero as any).ReplicationChecker;
 
     addon.data.alive = false;
     Zotero.debug("[ReplicationChecker] Shutdown complete");

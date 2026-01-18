@@ -16,6 +16,7 @@ replication-checker-progress-no-dois = No items with DOIs found in collection
 replication-checker-progress-complete = Check Complete
 replication-checker-progress-failed = Check Failed
 replication-checker-progress-match-count = Found { $count } item(s) with replications
+replication-checker-progress-copying-readonly = Copying items from read-only library to Personal library...
 
 ## Alerts
 replication-checker-alert-title = Zotero Replication Checker
@@ -43,6 +44,13 @@ replication-checker-dialog-question = Would you like to add replication informat
 replication-checker-dialog-progress-title = Replication Information Added
 replication-checker-dialog-progress-line = Added replication information to "{ $title }"
 
+## Read-Only Library Handling
+replication-checker-readonly-dialog-title = Read-Only Library Detected
+replication-checker-readonly-dialog-message =
+    This library is read-only. We found { $itemCount } item(s) with { $replicationCount } replication(s).
+
+    Would you like to copy the original articles and their replications to your Personal library's "Replication folder"?
+
 ## Results Messages
 replication-checker-results-title-library = Library Scan Complete
 replication-checker-results-title-selected = Selected Items Scan Complete
@@ -55,9 +63,12 @@ replication-checker-results-footer = View notes for details or select items to r
 
 ## Tags
 replication-checker-tag = Has Replication
+replication-checker-tag-is-replication = Is Replication
+replication-checker-tag-added-by-checker = Added by Replication Checker
 replication-checker-tag-success = Replication: Successful
 replication-checker-tag-failure = Replication: Failure
 replication-checker-tag-mixed = Replication: Mixed
+replication-checker-tag-readonly-origin = Original present in Read-Only Library
 
 ## Note Template
 replication-checker-note-title = Replications Found

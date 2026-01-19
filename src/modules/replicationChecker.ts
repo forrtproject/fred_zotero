@@ -8,9 +8,10 @@ import { BatchMatcher } from "./batchMatcher";
 import * as ZoteroIntegration from "../utils/zoteroIntegration";
 import type { ZoteroItemData } from "../types/replication";
 import { getString } from "../utils/strings";
+import { blacklistManager } from "./blacklistManager";
 
-const AUTO_CHECK_PREF = "extensions.zotero.replication-checker.autoCheckFrequency";
-const NEW_ITEM_PREF = "extensions.zotero.replication-checker.autoCheckNewItems";
+const AUTO_CHECK_PREF = "replication-checker.autoCheckFrequency";
+const NEW_ITEM_PREF = "replication-checker.autoCheckNewItems";
 
 interface MatchResult {
   doi: string;
@@ -72,8 +73,7 @@ export class ReplicationCheckerPlugin {
       notify: async (
         event: string,
         type: string,
-        ids: (number | string)[],
-        extraData?: any
+        ids: (number | string)[]
       ): Promise<void> => {
         if (event === "add" && type === "item") {
           if (!this.shouldCheckNewItems()) {
@@ -257,6 +257,7 @@ export class ReplicationCheckerPlugin {
     const frequency = this.getAutoCheckFrequency();
     const intervals: { [key: string]: number } = {
       disabled: 0,
+      test: 5 * 60 * 1000, // 5 minutes (for testing only)
       daily: 24 * 60 * 60 * 1000, // 24 hours
       weekly: 7 * 24 * 60 * 60 * 1000, // 7 days
       monthly: 30 * 24 * 60 * 60 * 1000, // 30 days
@@ -282,14 +283,11 @@ export class ReplicationCheckerPlugin {
       this.checkEntireLibrary();
     };
 
-    // Check immediately on startup
-    setTimeout(runAutoCheck, 5000); // Wait 5 seconds for plugin to fully initialize
-
-    // Set up recurring check
+    // Set up recurring check (starts after first interval)
     this.autoCheckTimer = setInterval(runAutoCheck, interval) as unknown as number;
 
     Zotero.debug(
-      `ReplicationChecker: Auto-check timer started (interval: ${this.getAutoCheckFrequency()})`
+      `ReplicationChecker: Auto-check timer started (interval: ${this.getAutoCheckFrequency()}) - first check in ${interval / 1000 / 60} minutes`
     );
   }
 
@@ -693,6 +691,102 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
+   * Ban selected replication items
+   * Moves items to trash and adds to blacklist
+   */
+  async banSelectedReplications(): Promise<void> {
+    try {
+      const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
+
+      // Filter for replication items only
+      const replicationItems = selectedItems.filter((item: Zotero.Item) =>
+        item.hasTag(getString("replication-checker-tag-is-replication")) ||
+        item.hasTag(getString("replication-checker-tag-added-by-checker"))
+      );
+
+      if (replicationItems.length === 0) {
+        this.showInfoAlert("replication-checker-alert-no-replications-selected");
+        return;
+      }
+
+      // Confirm action
+      const promptWin = this.getPromptWindow();
+      if (!promptWin) return;
+
+      const message = getString("replication-checker-ban-confirm", {
+        count: replicationItems.length
+      });
+
+      const confirmed = Services.prompt.confirm(
+        promptWin,
+        getString("replication-checker-ban-title"),
+        message
+      );
+
+      if (!confirmed) return;
+
+      // Process each item
+      for (const item of replicationItems) {
+        const doi = ZoteroIntegration.extractDOI(item);
+        if (!doi) continue;
+
+        // Get original paper info from related items
+        let originalTitle = "Unknown Original";
+        let originalDOI: string | undefined;
+
+        try {
+          const relatedKeys = item.relatedItems || [];
+          for (const relatedKey of relatedKeys) {
+            // Convert item key to item object
+            const relatedItem = Zotero.Items.getByLibraryAndKey(item.libraryID, relatedKey);
+            if (relatedItem && relatedItem.hasTag(getString("replication-checker-tag"))) {
+              originalTitle = relatedItem.getField("title") as string;
+              originalDOI = ZoteroIntegration.extractDOI(relatedItem) || undefined;
+
+              // Remove the related item link from the original paper
+              relatedItem.removeRelatedItem(item);
+              await relatedItem.saveTx();
+              break;
+            }
+          }
+        } catch (e) {
+          Zotero.debug(`ReplicationChecker: Could not process related items for ${item.id}`);
+        }
+
+        // Add to blacklist
+        const blacklistEntry = {
+          itemID: item.id,
+          doi: doi,
+          title: item.getField("title") as string,
+          originalTitle: originalTitle,
+          originalDOI: originalDOI,
+          dateAdded: new Date().toISOString(),
+          reason: 'manual' as const
+        };
+
+        Zotero.debug(`[ReplicationChecker] Adding to blacklist: ${JSON.stringify(blacklistEntry)}`);
+        await blacklistManager.addToBlacklist(blacklistEntry);
+        Zotero.debug(`[ReplicationChecker] Successfully added ${doi} to blacklist`);
+
+        // Move to trash
+        item.deleted = true;
+        await item.saveTx();
+      }
+
+      // Show success message
+      this.showInfoAlert("replication-checker-ban-success", {
+        count: replicationItems.length
+      });
+
+    } catch (error) {
+      Zotero.logError(
+        new Error(`Error banning replications: ${error instanceof Error ? error.message : String(error)}`)
+      );
+      this.showOperationError("selected", String(error));
+    }
+  }
+
+  /**
    * Show dialog asking user if they want to add replication information
    */
   private async showReplicationDialog(itemID: number, replications: any[]): Promise<void> {
@@ -765,11 +859,15 @@ export class ReplicationCheckerPlugin {
    */
   private async notifyUserAndAddReplications(itemID: number, replications: any[]): Promise<void> {
     try {
+      Zotero.debug(`[ReplicationChecker] Processing item ${itemID} with ${replications.length} replications`);
+
       // Step 1: Add tags and notes
       await this.notifyUser(itemID, replications);
 
       // Step 2: Add to replication folder
       await this.addReplicationsToFolder(itemID, replications);
+
+      Zotero.debug(`[ReplicationChecker] Completed processing item ${itemID}`);
     } catch (error) {
       Zotero.logError(new Error(
         `Error in notifyUserAndAddReplications for item ${itemID}: ${
@@ -786,6 +884,7 @@ export class ReplicationCheckerPlugin {
    */
   private async notifyUser(itemID: number, replications: any[]): Promise<void> {
     try {
+      Zotero.debug(`[ReplicationChecker] notifyUser called for item ${itemID}`);
       const item = await Zotero.Items.getAsync(itemID);
       if (!item) throw new Error(`Item ${itemID} not found`);
 
@@ -799,6 +898,11 @@ export class ReplicationCheckerPlugin {
         }
         return false;
       });
+
+      if (uniqueReplications.length === 0) {
+        Zotero.debug(`ReplicationChecker: No replications for item ${itemID}`);
+        return;
+      }
 
       // Add "Has Replication" tag
       await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag"));
@@ -923,6 +1027,27 @@ export class ReplicationCheckerPlugin {
         return false;
       });
 
+      // Filter out blacklisted replications
+      const nonBlacklistedReplications = uniqueReplications.filter((rep: any) => {
+        const doi_r = (rep.doi_r || "").trim();
+        if (!doi_r) return true;
+
+        if (blacklistManager.isBlacklisted(doi_r)) {
+          Zotero.debug(
+            `ReplicationChecker: Skipping blacklisted replication: ${doi_r} (${rep.title_r})`
+          );
+          return false;
+        }
+        return true;
+      });
+
+      if (nonBlacklistedReplications.length === 0) {
+        Zotero.debug(
+          `ReplicationChecker: All replications for item ${itemID} are blacklisted, skipping`
+        );
+        return;
+      }
+
       // Get or create replication collection
       const libraryID = item.libraryID;
       let collections = Zotero.Collections.getByLibrary(libraryID, true);
@@ -941,7 +1066,7 @@ export class ReplicationCheckerPlugin {
 
       // Process replications in transaction
       await Zotero.DB.executeTransaction(async () => {
-        for (const rep of uniqueReplications) {
+        for (const rep of nonBlacklistedReplications) {
           const doi_r = (rep.doi_r || "").trim();
           if (!doi_r || !doi_r.startsWith("10.")) {
             Zotero.debug(`Skipping invalid or missing DOI for replication: ${doi_r}`);
@@ -1461,8 +1586,25 @@ export class ReplicationCheckerPlugin {
               return false;
             });
 
+            // Filter out blacklisted replications
+            const nonBlacklistedReplications = uniqueReplications.filter((rep: any) => {
+              const doi_r = (rep.doi_r || "").trim();
+              if (!doi_r) return true;
+
+              if (blacklistManager.isBlacklisted(doi_r)) {
+                Zotero.debug(`[ReplicationChecker] Skipping blacklisted replication: ${doi_r}`);
+                return false;
+              }
+              return true;
+            });
+
+            if (nonBlacklistedReplications.length === 0) {
+              Zotero.debug(`[ReplicationChecker] All replications blacklisted for read-only item ${originalItemID}`);
+              continue;
+            }
+
             // Create replication items
-            for (const rep of uniqueReplications) {
+            for (const rep of nonBlacklistedReplications) {
               const doi_r = (rep.doi_r || "").trim();
               if (!doi_r || !doi_r.startsWith("10.")) continue;
 

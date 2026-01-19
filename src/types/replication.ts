@@ -99,3 +99,24 @@ export interface ReplicationCheckerConfig {
   createNotes: boolean;
   createReplicationFolder: boolean;
 }
+
+/**
+ * A single entry in the blacklist
+ */
+export interface BlacklistEntry {
+  itemID: number;           // Zotero item ID when blacklisted
+  doi: string;              // DOI of the replication (primary identifier)
+  title: string;            // Title of the replication
+  originalTitle: string;    // Title of the original paper
+  originalDOI?: string;     // DOI of the original paper (if available)
+  dateAdded: string;        // ISO timestamp when banned
+  reason?: 'manual' | 'deletion';  // How it was blacklisted
+}
+
+/**
+ * Blacklist data structure stored in preferences
+ */
+export interface BlacklistData {
+  version: number;          // Schema version for future migrations
+  entries: BlacklistEntry[];
+}

@@ -1,3 +1,24 @@
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml">
+
+<preferences>
+  <preference
+    id="pref-autoCheckFrequency"
+    name="extensions.zotero.replication-checker.autoCheckFrequency"
+    type="string"
+  />
+  <preference
+    id="pref-autoCheckNewItems"
+    name="extensions.zotero.replication-checker.autoCheckNewItems"
+    type="bool"
+  />
+  <preference
+    id="pref-blacklist"
+    name="extensions.zotero.replication-checker.blacklist"
+    type="string"
+  />
+</preferences>
+
 <groupbox>
   <label>
     <html:h2>Auto-Check Library for Replications</html:h2>
@@ -7,7 +28,7 @@
     Automatically check your library for replication studies at regular intervals
   </html:p>
 
-  <radiogroup preference="extensions.zotero.replication-checker.autoCheckFrequency" default="monthly">
+  <radiogroup preference="pref-autoCheckFrequency">
     <radio
       id="autocheck-disabled"
       label="Disabled (manual checking only)"
@@ -35,7 +56,7 @@
 
   <checkbox
     id="autocheck-new-items"
-    preference="extensions.zotero.replication-checker.autoCheckNewItems"
+    preference="pref-autoCheckNewItems"
     label="Automatically check newly added library items (recommended)"
   />
 
@@ -47,3 +68,68 @@
     <html:strong>Note:</html:strong> Auto-check runs in the background when Zotero is open. You can still manually check using the Tools menu.
   </html:p>
 </groupbox>
+
+<groupbox>
+  <label>
+    <html:h2>Banned Replications</html:h2>
+  </label>
+
+  <html:p style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
+    Manage replications you've banned from appearing in your library
+  </html:p>
+
+  <!-- Table-based layout for blacklist -->
+  <html:div id="blacklist-container" style="max-height: 300px; overflow-y: auto; border: 1px solid #999; margin-bottom: 8px; background-color: #ffffff;">
+    <html:table id="blacklist-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+      <html:thead style="position: sticky; top: 0; background-color: #d3d3d3; border-bottom: 2px solid #666;">
+        <html:tr>
+          <html:th style="padding: 8px; text-align: left; font-weight: bold; color: #000000; border-right: 1px solid #999;">Replicated Article</html:th>
+          <html:th style="padding: 8px; text-align: left; font-weight: bold; color: #000000; border-right: 1px solid #999;">Original Article</html:th>
+          <html:th style="padding: 8px; text-align: center; font-weight: bold; color: #000000; width: 120px;">Banned On</html:th>
+        </html:tr>
+      </html:thead>
+      <html:tbody id="blacklist-list">
+        <!-- Dynamically populated via script -->
+        <html:tr id="blacklist-empty-row">
+          <html:td colspan="3" style="padding: 20px; text-align: center; color: #999; font-style: italic;">
+            No banned replications
+          </html:td>
+        </html:tr>
+      </html:tbody>
+    </html:table>
+  </html:div>
+
+  <html:div style="display: flex; gap: 8px;">
+    <html:button id="blacklist-remove-btn" disabled="true">
+      Remove Selected
+    </html:button>
+    <html:button id="blacklist-clear-btn">
+      Clear All Banned Replications
+    </html:button>
+  </html:div>
+
+  <html:p style="margin-top: 8px; font-size: 0.85em; color: #999;">
+    Banned replications will not be re-added during future checks. You can ban replications using the context menu.
+  </html:p>
+</groupbox>
+
+<html:script><![CDATA[
+// Call the UI initializer from hooks.ts
+Zotero.debug('[ReplicationChecker Prefs] Preference pane script executing');
+
+if (Zotero.ReplicationChecker?.initBlacklistUI) {
+  Zotero.debug('[ReplicationChecker Prefs] Found initBlacklistUI function, calling it');
+  Zotero.ReplicationChecker.initBlacklistUI(document);
+} else {
+  Zotero.debug('[ReplicationChecker Prefs] initBlacklistUI not available, retrying...');
+  setTimeout(() => {
+    if (Zotero.ReplicationChecker?.initBlacklistUI) {
+      Zotero.ReplicationChecker.initBlacklistUI(document);
+    } else {
+      Zotero.debug('[ReplicationChecker Prefs] ERROR: initBlacklistUI still not available');
+    }
+  }, 500);
+}
+]]></html:script>
+
+</vbox>

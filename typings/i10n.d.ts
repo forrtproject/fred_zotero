@@ -5,8 +5,13 @@
 export type FluentMessageId =
   | 'replication-checker-alert-no-collection'
   | 'replication-checker-alert-no-dois-selected'
+  | 'replication-checker-alert-no-replications-selected'
   | 'replication-checker-alert-title'
+  | 'replication-checker-ban-confirm'
+  | 'replication-checker-ban-success'
+  | 'replication-checker-ban-title'
   | 'replication-checker-context-menu'
+  | 'replication-checker-context-menu-ban'
   | 'replication-checker-dialog-count'
   | 'replication-checker-dialog-intro'
   | 'replication-checker-dialog-item'

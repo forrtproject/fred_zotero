@@ -13,6 +13,7 @@ This plugin was developed as a [FORRT](https://forrt.org/) project to build a wo
 - 📝 **Detailed notes**: Creates child notes with replication details (title, authors, journal, outcome, DOI)
 - 🔗 **Smart organization**: Creates separate collections for originals from read-only libraries and their replications
 - 🔄 **Bidirectional linking**: Automatically links original studies with their replications as related items
+- 🚫 **Blacklist management**: Ban unwanted replications from being re-added during future checks
 - 🌍 **Multi-language support**: Available in English and German, with easy localization for additional languages
 - ⚡ **Fast**: Efficient hash-based lookup with collision handling
 
@@ -88,14 +89,52 @@ This works for both editable and read-only libraries, with the same behavior as 
 
 ### Check Newly Added Items
 
-- The plugin automatically checks newly added items. You can turn this off from the Replication Checker preferences panel if you prefer to run all scans manually.
+- The plugin automatically checks newly added items (enabled by default). You can turn this off from the Replication Checker preferences panel if you prefer to run all scans manually.
+
+### Ban Replications
+
+Sometimes you may want to prevent specific replications from being re-added to your library during future checks.
+
+**To ban a replication:**
+
+1. Right-click on a replication item (tagged with "Is Replication" or "Added by Replication Checker")
+2. Select **Ban Replication**
+3. Confirm the action
+4. The item will be moved to trash and added to your blacklist
+
+**Managing banned replications:**
+
+1. Go to **Zotero → Preferences → Replication Checker for Zotero**
+2. Scroll to the "Banned Replications" section
+3. View all banned items in a table showing:
+   - Replicated Article title
+   - Original Article title
+   - Date when banned
+4. Select an entry and click **Remove Selected** to unban it
+5. Click **Clear All Banned Replications** to reset the entire blacklist
+
+**How it works:**
+
+- Banned replications will never be re-added to your library during future checks
+- The replication note on the original article still shows ALL replications (including banned ones)
+- Only the automatic addition to the "Replication folder" is prevented
+- Blacklist is stored locally in Zotero preferences
 
 ### Preferences
 
-Open **Zotero → Preferences → Advanced → Replication Checker** to configure:
+Open **Zotero → Preferences → Replication Checker for Zotero** to configure:
 
-- **Auto-check frequency**: Run a library-wide scan daily, weekly, monthly, or keep it disabled.
-- **Automatically check newly added items**: Toggle whether items are scanned right after they appear in your library.
+**Auto-Check Library for Replications:**
+
+- **Frequency options**: Disabled, Daily, Weekly, or Monthly (default: Monthly)
+- **Automatically check newly added items**: Enabled by default - items are scanned when added to your library
+
+**Banned Replications:**
+
+- View and manage replications you've banned from appearing in your library
+- Remove individual entries or clear all banned replications at once
+
+> **Note:** When you uninstall the plugin, all preferences (including the blacklist) are automatically cleared. This ensures a fresh start if you reinstall.
 
 ## How It Works
 
@@ -192,7 +231,7 @@ fred_zotero/
 │   ├── bootstrap.js             # Bootstrap entry point
 │   ├── content/
 │   │   ├── icons/               # Extension icons
-│   │   └── preferences.xhtml    # Preferences UI
+│   │   └── preferences.xhtml    # Preferences UI with blacklist management
 │   ├── locale/
 │   │   └── en-US/
 │   │       └── replication-checker.ftl  # Fluent localization strings
@@ -200,16 +239,18 @@ fred_zotero/
 │   └── prefs.js                 # Default preference values
 ├── src/                         # TypeScript source
 │   ├── modules/
-│   │   ├── replicationChecker.ts    # Main plugin logic, library handling
+│   │   ├── replicationChecker.ts    # Main plugin logic, library handling, ban functionality
+│   │   ├── blacklistManager.ts      # Blacklist management with persistent storage
 │   │   ├── dataSource.ts            # API communication (queries FReD database)
-│   │   └── batchMatcher.ts          # Privacy-preserving DOI matching logic
+│   │   ├── batchMatcher.ts          # Privacy-preserving DOI matching logic
+│   │   └── onboarding.ts            # First-run onboarding tour
 │   ├── utils/
 │   │   ├── zoteroIntegration.ts     # Zotero API wrappers
 │   │   └── strings.ts               # Localization string helpers
 │   ├── types/
 │   │   └── replication.ts           # TypeScript type definitions
 │   ├── addon.ts                 # Addon class
-│   ├── hooks.ts                 # Lifecycle hooks, UI registration
+│   ├── hooks.ts                 # Lifecycle hooks, UI registration, blacklist UI
 │   └── index.ts                 # Entry point registered by bootstrap.js
 ├── .scaffold/build/             # Output directory for built plugin
 │   └── zotero-replication-checker.xpi
@@ -220,13 +261,15 @@ fred_zotero/
 
 ### Key Components
 
-- **`src/hooks.ts`**: Lifecycle hooks, UI registration (context menus, Tools menu)
-- **`src/modules/replicationChecker.ts`**: Main plugin logic, handles both editable and read-only libraries, manages collections and tags
+- **`src/hooks.ts`**: Lifecycle hooks, UI registration (context menus, Tools menu), blacklist UI initialization
+- **`src/modules/replicationChecker.ts`**: Main plugin logic, handles both editable and read-only libraries, manages collections and tags, ban functionality
+- **`src/modules/blacklistManager.ts`**: Manages banned replications with persistent storage and fast DOI lookup
 - **`src/modules/dataSource.ts`**: API communication with FReD database using privacy-preserving prefixes
 - **`src/modules/batchMatcher.ts`**: Privacy-preserving DOI matching using MD5 hash prefixes
 - **`src/utils/zoteroIntegration.ts`**: Zotero API wrappers for DOI extraction, tagging, notes
 - **`src/utils/strings.ts`**: Fluent localization string helpers
-- **`addon/locale/en-US/replication-checker.ftl`**: All user-facing strings including read-only library messages
+- **`addon/locale/en-US/replication-checker.ftl`**: All user-facing strings including read-only library messages and ban feature
+- **`addon/content/preferences.xhtml`**: Preferences UI with auto-check settings and blacklist management table
 
 ### Building the Plugin
 
@@ -318,6 +361,22 @@ The plugin outputs debug information to help troubleshoot issues.
 1. Create a collection with items that have replications
 2. Right-click collection → **Check for Replications**
 3. Verify items in collection are processed correctly
+
+**Test ban functionality:**
+
+1. After running a replication check, right-click a replication item
+2. Select **Ban Replication**
+3. Confirm the action
+4. Verify:
+   - Item is moved to trash
+   - Item appears in **Preferences → Replication Checker → Banned Replications** table
+5. Run the check again on the same original item
+6. Verify:
+   - Replication note still shows the banned replication
+   - Banned replication is NOT re-added to "Replication folder"
+7. Go to preferences and click **Remove Selected** or **Clear All**
+8. Run check again
+9. Verify banned item is now re-added
 
 ## Roadmap
 

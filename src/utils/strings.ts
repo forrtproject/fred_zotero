@@ -32,6 +32,13 @@ export const strings = {
   "replication-checker-target-selected": "the selected items",
   "replication-checker-target-collection": "the selected collection",
 
+  // Ban Feature
+  "replication-checker-context-menu-ban": "Ban Replication",
+  "replication-checker-ban-title": "Ban Replications",
+  "replication-checker-ban-confirm": "Are you sure you want to ban { $count } replication(s)?\n\nThese items will be moved to trash and won't be re-added during future checks.",
+  "replication-checker-ban-success": "Successfully banned { $count } replication(s).",
+  "replication-checker-alert-no-replications-selected": "No replication items selected.",
+
   // Dialog
   "replication-checker-dialog-title": "Replication Studies Found",
   "replication-checker-dialog-intro": "Replication studies found for:\n\"{ $title }\"",

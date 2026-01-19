@@ -4,6 +4,7 @@
 ## Menu Items
 replication-checker-tools-menu = Check Current Library for Replications
 replication-checker-context-menu = Check for Replications
+replication-checker-context-menu-ban = Ban Replication
 
 ## Progress Messages
 replication-checker-progress-checking-library = Checking for Replications
@@ -33,6 +34,15 @@ replication-checker-error-body =
 replication-checker-target-library = the current library
 replication-checker-target-selected = the selected items
 replication-checker-target-collection = the selected collection
+
+## Ban Feature
+replication-checker-ban-title = Ban Replications
+replication-checker-ban-confirm =
+    Are you sure you want to ban { $count } replication(s)?
+
+    These items will be moved to trash and won't be re-added during future checks.
+replication-checker-ban-success = Successfully banned { $count } replication(s).
+replication-checker-alert-no-replications-selected = No replication items selected.
 
 ## Dialog
 replication-checker-dialog-title = Replication Studies Found

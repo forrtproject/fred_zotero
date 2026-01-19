@@ -6,7 +6,7 @@
 import { getString } from "../utils/strings";
 
 const ONBOARDING_VERSION = 1;
-const ONBOARDING_PREF = "extensions.zotero.replication-checker.onboardingVersion";
+const ONBOARDING_PREF = "replication-checker.onboardingVersion";
 
 interface OnboardingScreen {
   title: string;

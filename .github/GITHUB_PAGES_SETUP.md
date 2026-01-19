@@ -36,24 +36,30 @@ The GitHub Pages workflow automatically publishes:
 ## 🎨 Customization
 
 The site uses:
-- **Theme**: GitHub's Cayman theme (gradient purple header)
-- **Style**: GitHub markdown CSS
-- **Custom Layout**: Defined in the workflow
+- **Theme**: Custom FORRT-inspired design
+- **Colors**: Dark teal (#004055), cream backgrounds (#fefdf6), light gray (#f8f9fa)
+- **Style**: Clean, professional academic look matching the main FORRT website
+- **Custom Layout**: Fully custom HTML/CSS defined in the workflow
 
-### Customizing the Theme
+### Customizing Colors
 
-Edit `.github/workflows/pages.yml` and modify the `_config.yml` section:
+Edit `.github/workflows/pages.yml` and modify the CSS variables in the custom layout:
 
-```yaml
-theme: jekyll-theme-cayman  # Change to: minimal, slate, etc.
+```css
+:root {
+  --primary-color: #004055;      /* Dark teal/blue */
+  --background-cream: #fefdf6;   /* Off-white/cream */
+  --section-gray: #f8f9fa;       /* Light gray */
+  --text-dark: #212529;
+  --text-muted: #6c757d;
+}
 ```
 
-Available themes:
-- `jekyll-theme-cayman` (default - purple gradient)
-- `jekyll-theme-minimal` (clean and simple)
-- `jekyll-theme-slate` (dark theme)
-- `jekyll-theme-architect`
-- `jekyll-theme-time-machine`
+### Design Features
+- **Sticky navigation bar** with hover effects
+- **Responsive layout** for mobile and desktop
+- **Enhanced markdown styling** with FORRT color scheme
+- **Professional footer** linking back to main FORRT site
 
 ---
 

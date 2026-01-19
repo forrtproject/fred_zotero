@@ -48,7 +48,6 @@ jobs:
           cat > docs/_config.yml << 'EOF'
           title: Zotero Replication Checker
           description: Privacy-first plugin to discover replications from the FORRT Replication Database (FReD)
-          theme: jekyll-theme-cayman
 
           # Navigation
           navigation:
@@ -62,6 +61,12 @@ jobs:
           # GitHub metadata
           github:
             repository_url: https://github.com/forrtproject/fred_zotero
+
+          # FORRT branding
+          forrt:
+            main_site: https://forrt.org/
+            project_name: FORRT Project
+            tagline: Framework for Open and Reproducible Research Training
 
           # Plugin info
           plugin:
@@ -82,82 +87,213 @@ jobs:
             <title>{{ page.title | default: site.title }}</title>
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css">
             <style>
+              /* FORRT-inspired color scheme */
+              :root {
+                --primary-color: #004055;      /* Dark teal/blue */
+                --background-cream: #fefdf6;   /* Off-white/cream */
+                --section-gray: #f8f9fa;       /* Light gray */
+                --text-dark: #212529;
+                --text-muted: #6c757d;
+              }
+
               body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 margin: 0;
                 padding: 0;
-                background: #f6f8fa;
+                background: var(--background-cream);
+                color: var(--text-dark);
               }
+
+              /* Header with FORRT-style dark teal */
               .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: var(--primary-color);
                 color: white;
-                padding: 2rem 0;
+                padding: 3rem 0 2.5rem;
                 text-align: center;
+                border-bottom: 4px solid #003344;
               }
+
               .header h1 {
                 margin: 0;
                 font-size: 2.5rem;
+                font-weight: 700;
+                letter-spacing: -0.5px;
               }
+
               .header p {
-                margin: 0.5rem 0 0;
-                font-size: 1.2rem;
-                opacity: 0.9;
+                margin: 1rem 0 0;
+                font-size: 1.15rem;
+                opacity: 0.95;
+                font-weight: 400;
+                max-width: 800px;
+                margin-left: auto;
+                margin-right: auto;
+                padding: 0 1rem;
               }
+
+              /* Navigation with FORRT-style clean design */
               .nav {
                 background: white;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                padding: 1rem 0;
+                box-shadow: 0 2px 8px rgba(0, 64, 85, 0.1);
+                padding: 0;
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+                border-bottom: 1px solid #e9ecef;
               }
+
               .nav-container {
                 max-width: 1200px;
                 margin: 0 auto;
                 padding: 0 2rem;
                 display: flex;
-                gap: 2rem;
+                gap: 0;
+                align-items: center;
               }
+
               .nav a {
-                color: #333;
+                color: var(--primary-color);
                 text-decoration: none;
                 font-weight: 500;
+                padding: 1.25rem 1.5rem;
+                display: block;
+                border-bottom: 3px solid transparent;
+                transition: all 0.2s ease;
+                font-size: 0.95rem;
               }
+
               .nav a:hover {
-                color: #667eea;
+                background: var(--section-gray);
+                border-bottom-color: var(--primary-color);
               }
+
+              /* Main content area */
               .container {
                 max-width: 1200px;
-                margin: 2rem auto;
+                margin: 3rem auto;
                 padding: 0 2rem;
               }
+
               .content {
                 background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                padding: 3rem;
+                border-radius: 4px;
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+                border: 1px solid #e9ecef;
               }
+
+              /* Enhanced markdown styling */
               .markdown-body {
                 box-sizing: border-box;
                 min-width: 200px;
                 max-width: 980px;
                 margin: 0 auto;
+                font-size: 16px;
+                line-height: 1.7;
               }
+
+              .markdown-body h1,
+              .markdown-body h2,
+              .markdown-body h3 {
+                color: var(--primary-color);
+                border-bottom-color: var(--section-gray);
+                font-weight: 600;
+              }
+
+              .markdown-body a {
+                color: var(--primary-color);
+                text-decoration: none;
+                border-bottom: 1px solid transparent;
+              }
+
+              .markdown-body a:hover {
+                border-bottom-color: var(--primary-color);
+              }
+
+              .markdown-body code {
+                background: var(--section-gray);
+                padding: 0.2em 0.4em;
+                border-radius: 3px;
+                font-size: 0.9em;
+              }
+
+              .markdown-body pre {
+                background: var(--section-gray);
+                border: 1px solid #e1e4e8;
+              }
+
+              /* Download button with FORRT teal */
               .download-btn {
                 display: inline-block;
-                background: #667eea;
+                background: var(--primary-color);
                 color: white;
-                padding: 0.75rem 1.5rem;
-                border-radius: 6px;
+                padding: 0.85rem 2rem;
+                border-radius: 4px;
                 text-decoration: none;
                 font-weight: 600;
-                margin: 1rem 0;
+                margin: 1.5rem 0.5rem 1rem 0;
+                box-shadow: 0 2px 4px rgba(0, 64, 85, 0.2);
+                transition: all 0.2s ease;
+                font-size: 0.95rem;
               }
+
               .download-btn:hover {
-                background: #5568d3;
+                background: #003344;
+                box-shadow: 0 4px 8px rgba(0, 64, 85, 0.3);
+                transform: translateY(-1px);
               }
+
+              /* Footer with FORRT colors */
               .footer {
+                background: var(--section-gray);
                 text-align: center;
-                padding: 2rem;
-                color: #666;
-                margin-top: 2rem;
+                padding: 2.5rem 2rem;
+                color: var(--text-muted);
+                margin-top: 4rem;
+                border-top: 1px solid #dee2e6;
+              }
+
+              .footer a {
+                color: var(--primary-color);
+                text-decoration: none;
+                font-weight: 500;
+                margin: 0 0.5rem;
+              }
+
+              .footer a:hover {
+                text-decoration: underline;
+              }
+
+              /* Responsive design */
+              @media (max-width: 768px) {
+                .header h1 {
+                  font-size: 2rem;
+                }
+
+                .header p {
+                  font-size: 1rem;
+                }
+
+                .nav-container {
+                  flex-direction: column;
+                  padding: 0;
+                  gap: 0;
+                }
+
+                .nav a {
+                  width: 100%;
+                  text-align: center;
+                  border-bottom: 1px solid #e9ecef;
+                }
+
+                .content {
+                  padding: 1.5rem;
+                }
+
+                .container {
+                  margin: 1.5rem auto;
+                  padding: 0 1rem;
+                }
               }
             </style>
           </head>
@@ -169,10 +305,11 @@ jobs:
 
             <nav class="nav">
               <div class="nav-container">
-                <a href="{{ site.github.repository_url }}">Home</a>
+                <a href="https://forrt.org/fred_zotero/">Home</a>
                 <a href="{{ site.github.repository_url }}/blob/main/README.md">Documentation</a>
                 <a href="{{ site.github.repository_url }}/releases">Releases</a>
                 <a href="{{ site.github.repository_url }}/issues">Issues</a>
+                <a href="https://forrt.org/">Back to FORRT</a>
               </div>
             </nav>
 
@@ -185,9 +322,11 @@ jobs:
             </div>
 
             <footer class="footer">
-              <p>Made with ❤️ by the FORRT Project |
-                <a href="{{ site.github.repository_url }}">GitHub</a> |
-                <a href="{{ site.github.repository_url }}/releases">Download</a>
+              <p>Part of the <a href="https://forrt.org/">FORRT Project</a> - Framework for Open and Reproducible Research Training</p>
+              <p style="margin-top: 0.5rem;">
+                <a href="{{ site.github.repository_url }}">GitHub Repository</a> |
+                <a href="{{ site.github.repository_url }}/releases">Download Plugin</a> |
+                <a href="{{ site.github.repository_url }}/issues">Report Issue</a>
               </p>
             </footer>
           </body>

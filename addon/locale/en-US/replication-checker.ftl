@@ -5,6 +5,7 @@
 replication-checker-tools-menu = Check Current Library for Replications
 replication-checker-context-menu = Check for Replications
 replication-checker-context-menu-ban = Ban Replication
+replication-checker-context-menu-add-original = Add Original
 
 ## Progress Messages
 replication-checker-progress-checking-library = Checking for Replications
@@ -23,6 +24,9 @@ replication-checker-progress-copying-readonly = Copying items from read-only lib
 replication-checker-alert-title = Zotero Replication Checker
 replication-checker-alert-no-dois-selected = No DOIs found in selected items.
 replication-checker-alert-no-collection = Please select a collection before running this check.
+replication-checker-alert-no-originals-available = No original studies available for this replication.
+replication-checker-alert-no-doi = Selected item has no DOI.
+replication-checker-add-original-success = Successfully added original study: { $title }
 replication-checker-error-title = Replication Checker - Error
 replication-checker-error-api = Could not retrieve data from API - check your internet connection or retry again later.
 replication-checker-error-body =
@@ -53,6 +57,8 @@ replication-checker-dialog-more = ...and { $count } more replication(s)
 replication-checker-dialog-question = Would you like to add replication information?
 replication-checker-dialog-progress-title = Replication Information Added
 replication-checker-dialog-progress-line = Added replication information to "{ $title }"
+replication-checker-dialog-is-replication-title = Original Study Found
+replication-checker-dialog-is-replication-message = No replications found, but this appears to be a replication study.\n\nWould you like to add the original article(s)?
 
 ## Read-Only Library Handling
 replication-checker-readonly-dialog-title = Read-Only Library Detected
@@ -79,6 +85,9 @@ replication-checker-tag-success = Replication: Successful
 replication-checker-tag-failure = Replication: Failure
 replication-checker-tag-mixed = Replication: Mixed
 replication-checker-tag-readonly-origin = Original present in Read-Only Library
+replication-checker-tag-has-been-replicated = Has Been Replicated
+replication-checker-tag-has-been-reproduced = Has Been Reproduced
+replication-checker-tag-in-fred = In FReD
 
 ## Note Template
 replication-checker-note-title = Replications Found

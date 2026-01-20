@@ -6,17 +6,12 @@
 import { APIDataSource } from "./dataSource";
 import { BatchMatcher } from "./batchMatcher";
 import * as ZoteroIntegration from "../utils/zoteroIntegration";
-import type { ZoteroItemData } from "../types/replication";
+import type { ZoteroItemData, DOICheckResult, RelatedStudy } from "../types/replication";
 import { getString } from "../utils/strings";
 import { blacklistManager } from "./blacklistManager";
 
 const AUTO_CHECK_PREF = "replication-checker.autoCheckFrequency";
 const NEW_ITEM_PREF = "replication-checker.autoCheckNewItems";
-
-interface MatchResult {
-  doi: string;
-  replications: any[];
-}
 
 type LocaleParams = Record<string, string | number>;
 const FEEDBACK_URL = "https://tinyurl.com/y5evebv9";
@@ -347,16 +342,19 @@ export class ReplicationCheckerPlugin {
       const dois = itemsToCheck.map((item) => item.doi);
       const results = await this.matcher!.checkBatch(dois);
 
-      // Process results and show dialog for items with replications
+      // Process results and show dialog for items with replications or originals
       for (const result of results) {
-        if (result.replications.length > 0) {
-          const itemData = itemsToCheck.find(
-            (item) => item.doi.toLowerCase() === result.doi.toLowerCase()
-          );
+        const itemData = itemsToCheck.find(
+          (item) => item.doi.toLowerCase() === result.doi.toLowerCase()
+        );
 
-          if (itemData) {
-            await this.showReplicationDialog(itemData.itemID, result.replications);
-          }
+        if (!itemData) continue;
+
+        if (result.replications.length > 0) {
+          await this.showReplicationDialog(itemData.itemID, result.replications);
+        } else if (result.originals.length > 0) {
+          // No replications but has originals - this is a replication study
+          await this.showIsReplicationDialog(itemData.itemID, result);
         }
       }
     } catch (error) {
@@ -393,7 +391,7 @@ export class ReplicationCheckerPlugin {
       this.addProgressLine(progressWin, getString("replication-checker-progress-checking-database"));
 
       // Check for replications
-      let results: MatchResult[];
+      let results: DOICheckResult[];
       try {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
@@ -491,12 +489,25 @@ export class ReplicationCheckerPlugin {
       }
 
       // Check for replications
-      let results: MatchResult[];
+      let results: DOICheckResult[];
       try {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
         this.handleMatchError(error, "selected");
         return;
+      }
+
+      // First, check for items that are replications (have originals but no replications)
+      for (const result of results) {
+        if (result.replications.length === 0 && result.originals.length > 0) {
+          const matchingItems = selectedItems.filter(
+            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
+          );
+
+          for (const libraryItem of matchingItems) {
+            await this.showIsReplicationDialog(libraryItem.itemID, result);
+          }
+        }
       }
 
       // Process results - group items by library and check permissions
@@ -603,7 +614,7 @@ export class ReplicationCheckerPlugin {
       this.addProgressLine(progressWin, getString("replication-checker-progress-checking-database"));
 
       // Check for replications
-      let results: MatchResult[];
+      let results: DOICheckResult[];
       try {
         results = await this.matcher.checkBatch(uniqueDois);
       } catch (error) {
@@ -612,6 +623,19 @@ export class ReplicationCheckerPlugin {
         progressWin.startCloseTimer(4000);
         this.handleMatchError(error, "collection");
         return;
+      }
+
+      // First, check for items that are replications (have originals but no replications)
+      for (const result of results) {
+        if (result.replications.length === 0 && result.originals.length > 0) {
+          const matchingItems = selectedItems.filter(
+            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
+          );
+
+          for (const libraryItem of matchingItems) {
+            await this.showIsReplicationDialog(libraryItem.itemID, result);
+          }
+        }
       }
 
       // Process results - group items by library and check permissions
@@ -687,6 +711,101 @@ export class ReplicationCheckerPlugin {
 
       // Show error alert to user
       this.showOperationError("collection", errorMsg);
+    }
+  }
+
+  /**
+   * Add original study for a selected replication item
+   * Called from the "Add Original" context menu
+   */
+  async addOriginalStudy(): Promise<void> {
+    try {
+      const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
+
+      // Only process the first selected item
+      if (selectedItems.length === 0) {
+        this.showInfoAlert("replication-checker-alert-no-replications-selected");
+        return;
+      }
+
+      const item = selectedItems[0];
+
+      // Check if item has "Is Replication" tag
+      if (!item.hasTag(getString("replication-checker-tag-is-replication"))) {
+        this.showInfoAlert("replication-checker-alert-no-replications-selected");
+        return;
+      }
+
+      const doi = ZoteroIntegration.extractDOI(item);
+      if (!doi) {
+        this.showInfoAlert("replication-checker-alert-no-doi");
+        return;
+      }
+
+      if (!this.matcher) throw new Error("Matcher not initialized");
+
+      // Query API for this DOI
+      const results = await this.matcher.checkBatch([doi]);
+
+      if (results.length === 0 || results[0].originals.length === 0) {
+        this.showInfoAlert("replication-checker-alert-no-originals-available");
+        return;
+      }
+
+      const result = results[0];
+      const originals = result.originals;
+
+      Zotero.debug(`[ReplicationChecker] Found ${originals.length} original(s) for replication ${doi}`);
+
+      // Get Personal library ID
+      const personalLibraryID = Zotero.Libraries.userLibraryID;
+
+      // Process each original study
+      for (const original of originals) {
+        // Check if original already exists in Personal library
+        const search = new Zotero.Search({ libraryID: personalLibraryID });
+        search.addCondition("DOI", "is", original.doi);
+        const existingIDs = await search.search();
+
+        let originalItemID: number;
+        if (existingIDs.length > 0) {
+          originalItemID = existingIDs[0];
+          Zotero.debug(`[ReplicationChecker] Using existing original item ${originalItemID}`);
+        } else {
+          // Create new item from RelatedStudy
+          originalItemID = await this.createItemFromRelatedStudy(original, personalLibraryID);
+          Zotero.debug(`[ReplicationChecker] Created new original item ${originalItemID}`);
+        }
+
+        const originalItem = await Zotero.Items.getAsync(originalItemID);
+        if (!originalItem) continue;
+
+        // Add tags to original
+        await ZoteroIntegration.addTag(originalItemID, getString("replication-checker-tag-has-been-replicated"));
+        await ZoteroIntegration.addTag(originalItemID, getString("replication-checker-tag-in-fred"));
+
+        // Create bidirectional relationship
+        item.addRelatedItem(originalItem);
+        originalItem.addRelatedItem(item);
+        await item.saveTx();
+        await originalItem.saveTx();
+
+        Zotero.debug(`[ReplicationChecker] Linked replication ${item.id} with original ${originalItemID}`);
+
+        // Create note on original showing ALL replications (not just this one)
+        await this.createReplicationNoteForOriginal(originalItemID, original.doi);
+
+        // Show success message
+        this.showInfoAlert("replication-checker-add-original-success", {
+          title: original.title
+        });
+      }
+
+    } catch (error) {
+      Zotero.logError(
+        new Error(`Error adding original study: ${error instanceof Error ? error.message : String(error)}`)
+      );
+      this.showOperationError("selected", String(error));
     }
   }
 
@@ -787,9 +906,95 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
+   * Show dialog when article is a replication (has originals but no replications found)
+   */
+  private async showIsReplicationDialog(itemID: number, result: DOICheckResult): Promise<void> {
+    try {
+      const promptWin = this.getPromptWindow();
+      if (!promptWin) return;
+
+      const item = await Zotero.Items.getAsync(itemID);
+      if (!item) return;
+
+      // Ask user if they want to add the original article(s)
+      const confirmed = Services.prompt.confirm(
+        promptWin,
+        getString("replication-checker-dialog-is-replication-title"),
+        getString("replication-checker-dialog-is-replication-message")
+      );
+
+      if (!confirmed) {
+        Zotero.debug(`[ReplicationChecker] User declined to add original for replication item ${itemID}`);
+        return;
+      }
+
+      // Tag the current item as "Is Replication"
+      await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag-is-replication"));
+      await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag-in-fred"));
+      Zotero.debug(`[ReplicationChecker] Tagged item ${itemID} as "Is Replication"`);
+
+      // Get Personal library ID
+      const personalLibraryID = Zotero.Libraries.userLibraryID;
+
+      // Process each original study
+      for (const original of result.originals) {
+        // Check if original already exists in Personal library
+        const search = new Zotero.Search({ libraryID: personalLibraryID });
+        search.addCondition("DOI", "is", original.doi);
+        const existingIDs = await search.search();
+
+        let originalItemID: number;
+        if (existingIDs.length > 0) {
+          originalItemID = existingIDs[0];
+          Zotero.debug(`[ReplicationChecker] Using existing original item ${originalItemID}`);
+        } else {
+          // Create new item from RelatedStudy
+          originalItemID = await this.createItemFromRelatedStudy(original, personalLibraryID);
+          Zotero.debug(`[ReplicationChecker] Created new original item ${originalItemID}`);
+        }
+
+        const originalItem = await Zotero.Items.getAsync(originalItemID);
+        if (!originalItem) continue;
+
+        // Add tags to original
+        await ZoteroIntegration.addTag(originalItemID, getString("replication-checker-tag-has-been-replicated"));
+        await ZoteroIntegration.addTag(originalItemID, getString("replication-checker-tag-in-fred"));
+
+        // Create bidirectional relationship
+        item.addRelatedItem(originalItem);
+        originalItem.addRelatedItem(item);
+        await item.saveTx();
+        await originalItem.saveTx();
+
+        Zotero.debug(`[ReplicationChecker] Linked replication ${item.id} with original ${originalItemID}`);
+
+        // Create note on original showing ALL replications (not just this one)
+        await this.createReplicationNoteForOriginal(originalItemID, original.doi);
+      }
+
+      // Show success message
+      const progressWin = new Zotero.ProgressWindow();
+      progressWin.changeHeadline(getString("replication-checker-dialog-progress-title"));
+      progressWin.show();
+      this.addProgressLine(
+        progressWin,
+        getString("replication-checker-dialog-progress-line", {
+          title: item.getField("title") as string,
+        })
+      );
+      progressWin.startCloseTimer(3000);
+
+    } catch (error) {
+      Zotero.logError(new Error(
+        `Error showing is-replication dialog: ${error instanceof Error ? error.message : String(error)}`
+      ));
+    }
+  }
+
+  /**
    * Show dialog asking user if they want to add replication information
    */
-  private async showReplicationDialog(itemID: number, replications: any[]): Promise<void> {
+  private async showReplicationDialog(itemID: number, replications: RelatedStudy[]): Promise<void> {
     try {
       const promptWin = this.getPromptWindow();
       if (!promptWin) return;
@@ -807,8 +1012,8 @@ export class ReplicationCheckerPlugin {
         const rep = replications[i];
         const entry = getString("replication-checker-dialog-item", {
           index: i + 1,
-          title: rep.title_r || getString("replication-checker-li-no-title"),
-          year: rep.year_r || getString("replication-checker-li-na"),
+          title: rep.title || getString("replication-checker-li-no-title"),
+          year: rep.year || getString("replication-checker-li-na"),
           outcome: rep.outcome || getString("replication-checker-li-na"),
         });
         message += `${entry}\n\n`;
@@ -854,18 +1059,82 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
+   * Process an article that exists in FReD database
+   * Tags the article based on whether it has replications, is a replication, etc.
+   * @param itemID The Zotero item ID
+   * @param result The DOICheckResult from the API
+   */
+  private async processArticleInFReD(itemID: number, result: DOICheckResult): Promise<void> {
+    try {
+      const item = await Zotero.Items.getAsync(itemID);
+      if (!item) return;
+
+      Zotero.debug(`[ReplicationChecker] Processing article in FReD: ${result.doi}`);
+
+      // Tag the item as being in FReD
+      await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag-in-fred"));
+
+      // If this article has been replicated (has replications)
+      if (result.replications.length > 0) {
+        await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag-has-been-replicated"));
+        Zotero.debug(`[ReplicationChecker] Tagged ${result.doi} as "Has Been Replicated" (${result.replications.length} replications)`);
+      }
+
+      // If this article has been reproduced (has reproductions)
+      if (result.reproductions.length > 0) {
+        await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag-has-been-reproduced"));
+        Zotero.debug(`[ReplicationChecker] Tagged ${result.doi} as "Has Been Reproduced" (${result.reproductions.length} reproductions)`);
+      }
+
+      // If this article is a replication of other studies (has originals)
+      if (result.originals.length > 0) {
+        await ZoteroIntegration.addTag(itemID, getString("replication-checker-tag-is-replication"));
+        Zotero.debug(`[ReplicationChecker] Tagged ${result.doi} as "Is Replication" (replicates ${result.originals.length} studies)`);
+      }
+
+    } catch (error) {
+      Zotero.logError(new Error(
+        `Error processing article in FReD for item ${itemID}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      ));
+    }
+  }
+
+  /**
+   * Convert RelatedStudy[] from new API format to old format for backward compatibility
+   */
+  private convertRelatedStudiesToOldFormat(studies: RelatedStudy[]): any[] {
+    return studies.map((study) => ({
+      doi_r: study.doi,
+      title_r: study.title,
+      author_r: study.authors, // Already in array format
+      year_r: study.year,
+      journal_r: study.journal,
+      volume_r: study.volume,
+      issue_r: study.issue,
+      pages_r: study.pages,
+      outcome: study.outcome,
+      url_r: study.url,
+    }));
+  }
+
+  /**
    * Notify user and add replications
    * Combines adding tags/notes and creating replication folder entries
    */
-  private async notifyUserAndAddReplications(itemID: number, replications: any[]): Promise<void> {
+  private async notifyUserAndAddReplications(itemID: number, replications: RelatedStudy[]): Promise<void> {
     try {
       Zotero.debug(`[ReplicationChecker] Processing item ${itemID} with ${replications.length} replications`);
 
+      // Convert new API format to old format for compatibility
+      const replicationsOldFormat = this.convertRelatedStudiesToOldFormat(replications);
+
       // Step 1: Add tags and notes
-      await this.notifyUser(itemID, replications);
+      await this.notifyUser(itemID, replicationsOldFormat);
 
       // Step 2: Add to replication folder
-      await this.addReplicationsToFolder(itemID, replications);
+      await this.addReplicationsToFolder(itemID, replicationsOldFormat);
 
       Zotero.debug(`[ReplicationChecker] Completed processing item ${itemID}`);
     } catch (error) {
@@ -1334,7 +1603,7 @@ export class ReplicationCheckerPlugin {
    * Show formatted results alert
    */
   private showResultsAlert(
-    results: MatchResult[],
+    results: DOICheckResult[],
     doiCount: number,
     totalItems: number,
     isSelected = false,
@@ -1387,6 +1656,126 @@ export class ReplicationCheckerPlugin {
   private isLibraryEditable(libraryID: number): boolean {
     const library = Zotero.Libraries.get(libraryID);
     return library ? library.editable : false;
+  }
+
+  /**
+   * Create a Zotero item from a RelatedStudy object
+   * @param study The RelatedStudy from the API
+   * @param libraryID The library to create the item in
+   * @returns The new item ID
+   */
+  private async createItemFromRelatedStudy(study: RelatedStudy, libraryID: number): Promise<number> {
+    const newItem = new Zotero.Item("journalArticle");
+    (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
+
+    newItem.setField("title", study.title || "Untitled");
+    newItem.setField("publicationTitle", study.journal || "");
+    newItem.setField("volume", study.volume || "");
+    newItem.setField("issue", study.issue || "");
+    newItem.setField("pages", study.pages || "");
+    newItem.setField("date", study.year?.toString() || "");
+    newItem.setField("DOI", study.doi || "");
+    if (study.abstract) {
+      newItem.setField("abstractNote", study.abstract);
+    }
+
+    const newItemID = await newItem.save() as number;
+    Zotero.debug(`[ReplicationChecker] Created item ${newItemID} from RelatedStudy: ${study.doi}`);
+
+    // Add authors
+    if (study.authors && Array.isArray(study.authors) && study.authors.length > 0) {
+      const creators = study.authors.map((author) => ({
+        creatorType: "author" as const,
+        firstName: author.given || "",
+        lastName: author.family || "",
+      }));
+
+      const item = await Zotero.Items.getAsync(newItemID);
+      if (item && creators.length > 0) {
+        item.setCreators(creators);
+        await item.save();
+        Zotero.debug(`[ReplicationChecker] Added ${creators.length} authors to item ${newItemID}`);
+      }
+    }
+
+    return newItemID;
+  }
+
+  /**
+   * Create a replication note for an original study showing all its replications
+   * @param originalItemID The original study item ID
+   * @param originalDOI The DOI of the original study
+   */
+  private async createReplicationNoteForOriginal(originalItemID: number, originalDOI: string): Promise<void> {
+    try {
+      if (!this.matcher) throw new Error("Matcher not initialized");
+
+      // Query API to get all replications for this original
+      const results = await this.matcher.checkBatch([originalDOI]);
+
+      if (results.length === 0 || results[0].replications.length === 0) {
+        Zotero.debug(`[ReplicationChecker] No replications found for original ${originalDOI}`);
+        return;
+      }
+
+      const replications = results[0].replications;
+
+      // Convert RelatedStudy[] to the old format for note creation
+      const replicationsForNote = replications.map((rep) => ({
+        doi_r: rep.doi,
+        title_r: rep.title,
+        author_r: rep.authors,
+        year_r: rep.year,
+        journal_r: rep.journal,
+        volume_r: rep.volume,
+        issue_r: rep.issue,
+        pages_r: rep.pages,
+        outcome: rep.outcome,
+        url_r: rep.url,
+      }));
+
+      // Check if note already exists
+      const item = await Zotero.Items.getAsync(originalItemID);
+      if (!item) return;
+
+      const noteIDs = item.getNotes();
+      let existingNote = null;
+      const noteHeadingHtml = this.getNoteHeadingHtml();
+
+      for (const noteID of noteIDs) {
+        const note = await Zotero.Items.getAsync(noteID);
+        if (!note) continue;
+
+        const currentNoteHTML = note.getNote();
+        if (
+          currentNoteHTML.startsWith(noteHeadingHtml) ||
+          currentNoteHTML.startsWith("<h2>Replications Found</h2>")
+        ) {
+          existingNote = note;
+          break;
+        }
+      }
+
+      if (existingNote) {
+        // Update existing note
+        const noteHTML = this.createReplicationNote(replicationsForNote);
+        existingNote.setNote(noteHTML);
+        await existingNote.saveTx();
+        Zotero.debug(`[ReplicationChecker] Updated replication note for original ${originalItemID}`);
+      } else {
+        // Create new note
+        const noteHTML = this.createReplicationNote(replicationsForNote);
+        await ZoteroIntegration.addNote(originalItemID, noteHTML);
+        Zotero.debug(`[ReplicationChecker] Created replication note for original ${originalItemID}`);
+      }
+
+    } catch (error) {
+      Zotero.logError(new Error(
+        `Error creating replication note for original ${originalItemID}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      ));
+    }
   }
 
   /**

@@ -117,13 +117,21 @@ jobs:
 
             Privacy-first plugin to discover replications from the FORRT Replication Database (FReD).
 
+            ---
+
+            ## 📥 **[⬇️ CLICK HERE TO DOWNLOAD](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi)**
+
+            **Direct Download:** [`zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi`](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi)
+
+            ---
+
             ### ✨ New in This Release
 
             Check the release notes below for all changes.
 
             ### 📥 Installation
 
-            1. Download `${{ env.XPI_NAME }}` below
+            1. **Click the download link above** or download `zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi` from Assets below
             2. In Zotero: **Tools → Add-ons** (or **Edit → Settings → Advanced → Settings Editor**)
             3. Click gear icon ⚙️ → **Install Add-on From File**
             4. Select the downloaded XPI file

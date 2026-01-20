@@ -3,34 +3,95 @@
  */
 
 /**
- * A single replication study from the API response
+ * Author object from API
  */
-export interface ReplicationStudy {
-  doi_r: string;
-  title_r: string;
-  author_r: string | string[];
-  journal_r: string;
-  year_r?: number;
-  volume_r?: string;
-  issue_r?: string;
-  pages_r?: string;
-  outcome: string;
-  url_r?: string;
+export interface Author {
+  given: string;
+  family: string;
+  sequence: 'first' | 'additional';
 }
 
 /**
- * An item entry in the API response for a given prefix
+ * Statistics about an article's replication status
  */
-export interface ReplicationItemEntry {
-  doi_o: string;
-  meta?: {
-    original_doi?: string;
+export interface ReplicationStats {
+  n_replications: number;
+  n_unique_replication_dois: number;
+  n_originals: number;
+  n_unique_original_dois: number;
+  n_reproductions: number;
+  n_reproduction_only: number;
+}
+
+/**
+ * A related study (replication, original, or reproduction)
+ */
+export interface RelatedStudy {
+  doi: string;
+  doi_hash: string;
+  rep_type?: 'replication' | 'original' | 'reproduction';
+  title: string;
+  authors: Author[];
+  journal: string;
+  year: number;
+  volume?: string | null;
+  issue?: string | null;
+  pages?: string | null;
+  apa_ref: string;
+  bibtex_ref: string;
+  url?: string | null;
+  outcome?: string;  // For replications: 'successful', 'failed', 'mixed', 'informational'
+  abstract?: string | null;
+  outcome_quote?: string | null;
+}
+
+/**
+ * Record containing all related studies
+ */
+export interface RelatedStudiesRecord {
+  stats: ReplicationStats;
+  replications: RelatedStudy[];  // Studies that replicated this article
+  originals: RelatedStudy[];     // Original studies that this article replicated
+  reproductions: RelatedStudy[]; // Studies that reproduced this article
+}
+
+/**
+ * Main article entry from FReD API
+ */
+export interface FReDArticle {
+  doi: string;
+  doi_hash: string;
+  title: string;
+  authors: Author[];
+  journal: string;
+  year: number;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  apa_ref: string;
+  bibtex_ref: string;
+  url?: string | null;
+  record: RelatedStudiesRecord;
+}
+
+/**
+ * API response from prefix lookup
+ */
+export interface PrefixLookupResponse {
+  results: {
+    [prefix: string]: FReDArticle[];
   };
-  replications: ReplicationStudy[];
 }
 
 /**
- * A replication match found for an item
+ * API request payload for prefix lookup
+ */
+export interface PrefixLookupRequest {
+  prefixes: string[];
+}
+
+/**
+ * A replication match found for an item (internal format)
  */
 export interface ReplicationMatch {
   doi: string;
@@ -43,6 +104,16 @@ export interface ReplicationMatch {
   pages?: string;
   outcome: 'successful' | 'failure' | 'mixed' | 'informational';
   report_url?: string;
+}
+
+/**
+ * Result of checking a single DOI
+ */
+export interface DOICheckResult {
+  doi: string;
+  replications: RelatedStudy[];
+  originals: RelatedStudy[];
+  reproductions: RelatedStudy[];
 }
 
 /**
@@ -63,21 +134,6 @@ export interface ZoteroItemData {
   title: string;
   authors?: string;
   year?: number;
-}
-
-/**
- * API request payload for prefix lookup
- */
-export interface PrefixLookupRequest {
-  prefixes: string[];
-}
-
-/**
- * API response from prefix lookup
- * Maps hash prefixes to arrays of items with their replications
- */
-export interface PrefixLookupResponse {
-  [prefix: string]: ReplicationItemEntry[];
 }
 
 /**

@@ -168,6 +168,25 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     });
     Zotero.debug("[ReplicationChecker] Added Ban Replication context menu item");
 
+    // Register "Add Original Study" context menu item
+    ztoolkit.Menu.register("item", {
+      tag: "menuitem",
+      id: "replication-checker-add-original-menu",
+      label: getString("replication-checker-context-menu-add-original"),
+      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      getVisibility: (elem, ev) => {
+        // Only show for items tagged as "Is Replication"
+        const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
+        return selectedItems.some((item: Zotero.Item) =>
+          item.hasTag(getString("replication-checker-tag-is-replication"))
+        );
+      },
+      commandListener: () => {
+        replicationChecker.addOriginalStudy();
+      },
+    });
+    Zotero.debug("[ReplicationChecker] Added Add Original Study context menu item");
+
     // Register Collection context menu item
     ztoolkit.Menu.register("collection", {
       tag: "menuitem",

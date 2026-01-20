@@ -26,6 +26,7 @@ export class ReplicationCheckerPlugin {
   private notifierID: string | null = null;
   private autoCheckTimer: number | null = null;
   private prefObserverSymbols: symbol[] = [];
+  private pluginAddedItems: Set<number> = new Set(); // Track items added by the plugin
 
   /**
    * Initialize the plugin
@@ -309,8 +310,16 @@ export class ReplicationCheckerPlugin {
       }
 
       const itemsToCheck: ZoteroItemData[] = [];
+      const pluginAddedItemsToCheck: Set<number> = new Set();
 
       for (const itemID of itemIDs) {
+        // Track if item was added by plugin, but don't skip it yet
+        if (this.pluginAddedItems.has(itemID)) {
+          Zotero.debug(`ReplicationChecker: Item ${itemID} was added by plugin - will check for further replications only`);
+          pluginAddedItemsToCheck.add(itemID);
+          this.pluginAddedItems.delete(itemID); // Remove from tracking set
+        }
+
         const item = await Zotero.Items.getAsync(itemID);
         if (!item) continue;
 
@@ -350,9 +359,13 @@ export class ReplicationCheckerPlugin {
 
         if (!itemData) continue;
 
+        // Check if this item was added by the plugin
+        const isPluginAdded = pluginAddedItemsToCheck.has(itemData.itemID);
+
         if (result.replications.length > 0) {
           await this.showReplicationDialog(itemData.itemID, result.replications);
-        } else if (result.originals.length > 0) {
+        } else if (result.originals.length > 0 && !isPluginAdded) {
+          // Only check for originals if this was NOT added by the plugin
           // No replications but has originals - this is a replication study
           await this.showIsReplicationDialog(itemData.itemID, result);
         }
@@ -775,6 +788,9 @@ export class ReplicationCheckerPlugin {
           // Create new item from RelatedStudy
           originalItemID = await this.createItemFromRelatedStudy(original, personalLibraryID);
           Zotero.debug(`[ReplicationChecker] Created new original item ${originalItemID}`);
+
+          // Track this item so we don't auto-check it
+          this.pluginAddedItems.add(originalItemID);
         }
 
         const originalItem = await Zotero.Items.getAsync(originalItemID);
@@ -951,6 +967,9 @@ export class ReplicationCheckerPlugin {
           // Create new item from RelatedStudy
           originalItemID = await this.createItemFromRelatedStudy(original, personalLibraryID);
           Zotero.debug(`[ReplicationChecker] Created new original item ${originalItemID}`);
+
+          // Track this item so we don't auto-check it
+          this.pluginAddedItems.add(originalItemID);
         }
 
         const originalItem = await Zotero.Items.getAsync(originalItemID);
@@ -1419,6 +1438,9 @@ export class ReplicationCheckerPlugin {
 
             const newItemID = (await newItem.save()) as number;
             Zotero.debug(`Added new replication item with ID ${newItemID} for DOI ${doi_r}`);
+
+            // Track this item so we don't auto-check it
+            this.pluginAddedItems.add(newItemID);
 
             // Add bidirectional "related items" link between original and replication
             try {

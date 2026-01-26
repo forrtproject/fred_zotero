@@ -98,7 +98,7 @@ jobs:
             <style>
               /* FORRT color scheme - exact match */
               :root {
-                --primary-color: #004055;      /* Dark teal from FORRT */
+                --primary-color: #3e3e3e;      /* Dark teal from FORRT */
                 --primary-hover: #003344;      /* Darker teal for hover */
                 --background-cream: #fefdf6;   /* Cream background from FORRT */
                 --section-gray: #f8f9fa;       /* Light gray sections */
@@ -167,7 +167,7 @@ jobs:
                 font-size: 2.75rem;
                 font-weight: 700;
                 letter-spacing: -0.5px;
-                color: #004055;
+                color: #3e3e3e;
               }
 
               .header p {
@@ -204,7 +204,7 @@ jobs:
               }
 
               .nav a {
-                color: #004055 !important;
+                color: #3e3e3e !important;
                 text-decoration: none;
                 font-weight: 500;
                 padding: 1.1rem 1.75rem;
@@ -217,11 +217,11 @@ jobs:
 
               .nav a:hover {
                 background: var(--section-gray);
-                border-bottom-color: #004055;
+                border-bottom-color: #3e3e3e;
               }
 
               .nav a.active {
-                border-bottom-color: #004055;
+                border-bottom-color: #3e3e3e;
                 font-weight: 600;
               }
 
@@ -294,7 +294,7 @@ jobs:
               .markdown-body h2,
               .markdown-body h3,
               .markdown-body h4 {
-                color: #004055 !important;
+                color: #3e3e3e !important;
                 background: transparent !important;
                 border-bottom-color: var(--section-gray);
                 font-weight: 600;
@@ -317,7 +317,7 @@ jobs:
               }
 
               .markdown-body a {
-                color: #004055 !important;
+                color: #3e3e3e !important;
                 background: transparent !important;
                 text-decoration: none;
                 border-bottom: 1px solid transparent;
@@ -325,7 +325,7 @@ jobs:
               }
 
               .markdown-body a:hover {
-                border-bottom-color: #004055;
+                border-bottom-color: #3e3e3e;
                 background: transparent !important;
               }
 
@@ -369,7 +369,7 @@ jobs:
               }
 
               .markdown-body blockquote {
-                border-left: 4px solid #004055;
+                border-left: 4px solid #3e3e3e;
                 padding-left: 1rem;
                 margin-left: 0;
                 color: var(--text-muted);

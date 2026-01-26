@@ -155,7 +155,7 @@ jobs:
 
               /* Page header */
               .header {
-                background: linear-gradient(135deg, var(--background-cream) 0%, #f5f4eb 100%);
+                background: var(--background-cream);
                 color: var(--text-dark);
                 padding: 4rem 0 3rem;
                 text-align: center;
@@ -167,7 +167,7 @@ jobs:
                 font-size: 2.75rem;
                 font-weight: 700;
                 letter-spacing: -0.5px;
-                color: var(--primary-color);
+                color: #004055;
               }
 
               .header p {
@@ -178,7 +178,7 @@ jobs:
                 margin-left: auto;
                 margin-right: auto;
                 padding: 0 1rem;
-                color: var(--text-muted);
+                color: #6c757d;
                 line-height: 1.7;
               }
 
@@ -204,7 +204,7 @@ jobs:
               }
 
               .nav a {
-                color: var(--primary-color);
+                color: #004055 !important;
                 text-decoration: none;
                 font-weight: 500;
                 padding: 1.1rem 1.75rem;
@@ -217,11 +217,11 @@ jobs:
 
               .nav a:hover {
                 background: var(--section-gray);
-                border-bottom-color: var(--primary-color);
+                border-bottom-color: #004055;
               }
 
               .nav a.active {
-                border-bottom-color: var(--primary-color);
+                border-bottom-color: #004055;
                 font-weight: 600;
               }
 
@@ -230,14 +230,31 @@ jobs:
                 max-width: 1200px;
                 margin: 3rem auto 4rem;
                 padding: 0 2rem;
+                background: transparent !important;
+              }
+
+              /* Override any dark backgrounds */
+              article,
+              section,
+              div:not(.forrt-banner):not(.forrt-banner-content):not(.header):not(.nav):not(.nav-container):not(.footer) {
+                background-color: transparent !important;
               }
 
               .content {
-                background: white;
+                background: white !important;
                 padding: 3.5rem;
                 border-radius: 8px;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
                 border: 1px solid var(--border-color);
+              }
+
+              .content * {
+                background-color: transparent;
+              }
+
+              .content pre,
+              .content code {
+                background-color: var(--section-gray) !important;
               }
 
               /* Feature badges */
@@ -260,13 +277,25 @@ jobs:
                 margin: 0 auto;
                 font-size: 16px;
                 line-height: 1.75;
+                background: white !important;
+                color: var(--text-dark) !important;
+              }
+
+              .markdown-body * {
+                background: transparent;
+              }
+
+              .markdown-body pre,
+              .markdown-body code {
+                background: var(--section-gray) !important;
               }
 
               .markdown-body h1,
               .markdown-body h2,
               .markdown-body h3,
               .markdown-body h4 {
-                color: var(--primary-color);
+                color: #004055 !important;
+                background: transparent !important;
                 border-bottom-color: var(--section-gray);
                 font-weight: 600;
                 margin-top: 2rem;
@@ -277,23 +306,27 @@ jobs:
                 font-size: 2rem;
                 border-bottom: 2px solid var(--border-color);
                 padding-bottom: 0.5rem;
+                background: transparent !important;
               }
 
               .markdown-body h2 {
                 font-size: 1.5rem;
                 border-bottom: 1px solid var(--section-gray);
                 padding-bottom: 0.4rem;
+                background: transparent !important;
               }
 
               .markdown-body a {
-                color: var(--primary-color);
+                color: #004055 !important;
+                background: transparent !important;
                 text-decoration: none;
                 border-bottom: 1px solid transparent;
                 transition: all 0.2s ease;
               }
 
               .markdown-body a:hover {
-                border-bottom-color: var(--primary-color);
+                border-bottom-color: #004055;
+                background: transparent !important;
               }
 
               .markdown-body code {
@@ -318,21 +351,39 @@ jobs:
                 color: inherit;
               }
 
+              .markdown-body p {
+                background: transparent !important;
+                color: var(--text-dark);
+              }
+
               .markdown-body ul,
               .markdown-body ol {
                 padding-left: 2rem;
+                background: transparent !important;
               }
 
               .markdown-body li {
                 margin: 0.5rem 0;
+                background: transparent !important;
+                color: var(--text-dark);
               }
 
               .markdown-body blockquote {
-                border-left: 4px solid var(--primary-color);
+                border-left: 4px solid #004055;
                 padding-left: 1rem;
                 margin-left: 0;
                 color: var(--text-muted);
                 font-style: italic;
+                background: transparent !important;
+              }
+
+              .markdown-body table {
+                background: white !important;
+              }
+
+              .markdown-body td,
+              .markdown-body th {
+                background: transparent !important;
               }
 
               /* Download button with FORRT teal */

@@ -190,3 +190,10 @@ jobs:
             update.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger GitHub Pages rebuild
+        run: |
+          echo "Triggering GitHub Pages workflow to update update.json..."
+          gh workflow run pages.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

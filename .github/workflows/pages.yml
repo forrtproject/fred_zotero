@@ -27,6 +27,16 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies and build
+        run: |
+          npm install
+          npm run build
+
       - name: Create docs directory
         run: |
           mkdir -p docs
@@ -47,6 +57,16 @@ jobs:
           mkdir -p docs/assets
           if [ -f "addon/content/icons/favicon.png" ]; then
             cp addon/content/icons/favicon.png docs/assets/favicon.png
+          fi
+
+          # Copy update.json from build for Zotero auto-updates
+          if [ -f ".scaffold/build/update.json" ]; then
+            cp .scaffold/build/update.json docs/update.json
+            echo "✅ Copied update.json to docs/ for Zotero auto-updates"
+            echo "Update.json contents:"
+            cat docs/update.json
+          else
+            echo "⚠️ Warning: update.json not found in build"
           fi
 
       - name: Create _config.yml for Jekyll

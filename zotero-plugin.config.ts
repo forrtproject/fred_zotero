@@ -7,7 +7,7 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  updateURL: `https://github.com/forrtproject/fred_zotero/releases/download/release/${
+  updateURL: `https://forrtproject.github.io/fred_zotero/${
     pkg.version.includes("-") ? "update-beta.json" : "update.json"
   }`,
   xpiDownloadLink:

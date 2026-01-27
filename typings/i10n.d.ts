@@ -3,6 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 export type FluentMessageId =
+  | 'onboarding-context-content'
+  | 'onboarding-context-title'
+  | 'onboarding-scan-content'
+  | 'onboarding-scan-title'
+  | 'onboarding-tools-content'
+  | 'onboarding-tools-title'
+  | 'onboarding-welcome-content'
+  | 'onboarding-welcome-title'
   | 'replication-checker-add-original-success'
   | 'replication-checker-alert-no-collection'
   | 'replication-checker-alert-no-doi'

@@ -131,7 +131,8 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       commandListener: async () => {
         Zotero.debug("[ReplicationChecker] Opening user guide");
-        await onboardingManager.showOnboarding();
+        // Don't show scan prompt when opened from Help menu
+        await onboardingManager.showOnboarding(false);
       },
     });
     Zotero.debug("[ReplicationChecker] Added Help menu item");
@@ -199,63 +200,42 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     });
     Zotero.debug("[ReplicationChecker] Added Collection context menu item");
 
-    // Show onboarding and first-run prompt
+    // Show onboarding on first run
     setTimeout(async () => {
       try {
-        // Check if onboarding should be shown
-        if (onboardingManager.shouldShowOnboarding()) {
-          Zotero.debug("[ReplicationChecker] Showing onboarding tour");
-          const completed = await onboardingManager.showOnboarding();
-
-          if (!completed) {
-            Zotero.debug("[ReplicationChecker] User skipped onboarding");
-            // Still mark as shown so it doesn't appear again
-            onboardingManager.markOnboardingComplete();
-          }
-        }
-
-        // After onboarding, check if we should show the welcome prompt
-        Zotero.debug("[ReplicationChecker] Checking first-run preference");
-        let welcomeShown;
+        // Check if this is first run
+        let firstRunDone;
         try {
-          welcomeShown = Zotero.Prefs.get("replication-checker.firstRunDone");
-          Zotero.debug(`[ReplicationChecker] First run check: welcomeShown = ${welcomeShown}`);
+          firstRunDone = Zotero.Prefs.get("replication-checker.firstRunDone");
+          Zotero.debug(`[ReplicationChecker] First run check: firstRunDone = ${firstRunDone}`);
         } catch (error) {
           Zotero.debug(`[ReplicationChecker] Error getting preference: ${error}`);
-          welcomeShown = false; // Assume first run if preference doesn't exist
+          firstRunDone = false; // Assume first run if preference doesn't exist
         }
 
-        if (!welcomeShown) {
-          Zotero.debug("[ReplicationChecker] Showing first-run scan prompt");
-          const promptWin = Zotero.getMainWindow();
-          if (!promptWin) {
-            Zotero.debug("[ReplicationChecker] Main window not available, skipping prompt");
-            return;
-          }
+        if (!firstRunDone && onboardingManager.shouldShowOnboarding()) {
+          Zotero.debug("[ReplicationChecker] Showing onboarding with scan prompt");
 
+          // Mark as shown before showing onboarding
           Zotero.Prefs.set("replication-checker.firstRunDone", true);
 
-          const ps = Services.prompt as any;
-          const result = ps.confirmEx(
-            promptWin as any,
-            getString("replication-checker-prompt-title"),
-            getString("replication-checker-prompt-first-run"),
-            ps.BUTTON_POS_0 * ps.BUTTON_TITLE_YES + ps.BUTTON_POS_1 * ps.BUTTON_TITLE_NO,
-            null, null, null, null, {}
-          );
+          // Show onboarding with scan prompt on last page
+          const result = await onboardingManager.showOnboarding(true);
 
-          if (result === 0) {
-            Zotero.debug("[ReplicationChecker] User accepted first-run scan");
+          if (result.completed && result.shouldScan) {
+            Zotero.debug("[ReplicationChecker] User accepted first-run scan from onboarding");
             replicationChecker.checkEntireLibrary();
+          } else if (result.completed) {
+            Zotero.debug("[ReplicationChecker] User completed onboarding but declined scan");
           } else {
-            Zotero.debug("[ReplicationChecker] User declined first-run scan");
+            Zotero.debug("[ReplicationChecker] User skipped onboarding");
           }
         } else {
-          Zotero.debug("[ReplicationChecker] First-run prompt already shown, skipping");
+          Zotero.debug("[ReplicationChecker] First-run already done or onboarding not needed, skipping");
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        Zotero.logError(new Error(`[ReplicationChecker] Error in onboarding/prompt: ${errorMsg}`));
+        Zotero.logError(new Error(`[ReplicationChecker] Error in onboarding: ${errorMsg}`));
       }
     }, 3000);
 

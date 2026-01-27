@@ -33,6 +33,10 @@ export class OnboardingManager {
       title: getString("onboarding-context-title"),
       content: getString("onboarding-context-content"),
     },
+    {
+      title: getString("onboarding-scan-title"),
+      content: getString("onboarding-scan-content"),
+    },
   ];
 
   /**
@@ -57,18 +61,19 @@ export class OnboardingManager {
 
   /**
    * Show the onboarding dialog
+   * @param showScanPrompt Whether to show the scan prompt on the last page (for first-time users)
    */
-  async showOnboarding(): Promise<boolean> {
+  async showOnboarding(showScanPrompt: boolean = false): Promise<{ completed: boolean; shouldScan?: boolean }> {
     return new Promise((resolve) => {
       const win = Zotero.getMainWindow();
       if (!win) {
         Zotero.debug("[ReplicationChecker] Main window not available for onboarding");
-        resolve(false);
+        resolve({ completed: false });
         return;
       }
 
       this.currentScreen = 0;
-      this.createDialog(win, resolve);
+      this.createDialog(win, showScanPrompt, resolve);
     });
   }
 
@@ -117,7 +122,11 @@ export class OnboardingManager {
   /**
    * Create the onboarding dialog window
    */
-  private createDialog(parentWindow: Window, onComplete: (completed: boolean) => void): void {
+  private createDialog(
+    parentWindow: Window,
+    showScanPrompt: boolean,
+    onComplete: (result: { completed: boolean; shouldScan?: boolean }) => void
+  ): void {
     const dialogFeatures = "chrome,centerscreen,modal,resizable=no,width=600,height=500";
 
     // Open the dialog using chrome:// URL
@@ -127,12 +136,13 @@ export class OnboardingManager {
       dialogFeatures,
       {
         screens: this.screens,
-        onComplete: (completed: boolean) => {
-          if (completed) {
+        showScanPrompt: showScanPrompt,
+        onComplete: (result: { completed: boolean; shouldScan?: boolean }) => {
+          if (result.completed) {
             this.markOnboardingComplete();
           }
           this.clearHighlights(parentWindow);
-          onComplete(completed);
+          onComplete(result);
         },
         triggerHighlight: (screenIndex: number) => {
           this.currentScreen = screenIndex;

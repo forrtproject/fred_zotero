@@ -17,6 +17,7 @@
       let onComplete;
       let triggerHighlight;
       let clearHighlights;
+      let showScanPrompt = false;
 
       function init() {
         const args = window.arguments[0];
@@ -24,6 +25,7 @@
         onComplete = args.onComplete;
         triggerHighlight = args.triggerHighlight;
         clearHighlights = args.clearHighlights;
+        showScanPrompt = args.showScanPrompt || false;
         currentScreen = 0;
         updateScreen();
       }
@@ -39,10 +41,24 @@
         document.getElementById("btn-previous").disabled = currentScreen === 0;
 
         const nextBtn = document.getElementById("btn-next");
-        if (currentScreen === screens.length - 1) {
+        const yesBtn = document.getElementById("btn-yes");
+        const noBtn = document.getElementById("btn-no");
+
+        // On last screen with scan prompt, show Yes/No buttons
+        if (currentScreen === screens.length - 1 && showScanPrompt) {
+          nextBtn.hidden = true;
+          yesBtn.hidden = false;
+          noBtn.hidden = false;
+        } else if (currentScreen === screens.length - 1) {
           nextBtn.label = "Get Started";
+          nextBtn.hidden = false;
+          yesBtn.hidden = true;
+          noBtn.hidden = true;
         } else {
           nextBtn.label = "Next";
+          nextBtn.hidden = false;
+          yesBtn.hidden = true;
+          noBtn.hidden = true;
         }
 
         // Trigger interactive highlight if available
@@ -56,12 +72,28 @@
           if (clearHighlights) {
             clearHighlights();
           }
-          onComplete(true);
+          onComplete({ completed: true, shouldScan: false });
           window.close();
         } else {
           currentScreen++;
           updateScreen();
         }
+      }
+
+      function onYes() {
+        if (clearHighlights) {
+          clearHighlights();
+        }
+        onComplete({ completed: true, shouldScan: true });
+        window.close();
+      }
+
+      function onNo() {
+        if (clearHighlights) {
+          clearHighlights();
+        }
+        onComplete({ completed: true, shouldScan: false });
+        window.close();
       }
 
       function onPrevious() {
@@ -75,7 +107,7 @@
         if (clearHighlights) {
           clearHighlights();
         }
-        onComplete(false);
+        onComplete({ completed: false, shouldScan: false });
         window.close();
       }
 
@@ -109,6 +141,8 @@
       <button id="btn-skip" label="Skip Tour" oncommand="onSkip()" style="margin-right: auto;"/>
       <button id="btn-previous" label="Previous" oncommand="onPrevious()" disabled="true"/>
       <button id="btn-next" label="Next" oncommand="onNext()" default="true"/>
+      <button id="btn-yes" label="Yes" oncommand="onYes()" hidden="true" default="true"/>
+      <button id="btn-no" label="No" oncommand="onNo()" hidden="true"/>
     </hbox>
   </vbox>
 

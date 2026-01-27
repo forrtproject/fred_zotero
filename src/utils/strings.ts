@@ -101,15 +101,18 @@ export const strings = {
   "replication-checker-prompt-title": "Welcome to Zotero Replication Checker!",
   "replication-checker-prompt-first-run": "Thank you for installing the Zotero Replication Checker!\n\nThis plugin helps you discover replication studies for your research by checking your library items against the FORRT Replication Database (FReD).\n\nWould you like to scan your library for replications now?\n\n• Click \"Yes\" to start scanning (this may take a few minutes)\n• Click \"No\" to skip - you can always scan later from Tools menu",
 
-  // Onboarding Screens
+  // Onboarding
   "onboarding-welcome-title": "Welcome to Replication Checker!",
-  "onboarding-welcome-content": "Thank you for installing the Zotero Replication Checker!\n\nThis plugin helps you discover replication studies by automatically checking your library items against the FORRT Replication Database (FReD).\n\n✨ Key Features:\n• Automatic checking of DOIs against replication database\n• Works with entire library, collections, or individual items\n• Creates linked notes with replication information\n• Tags items with replication status\n\nLet's take a quick tour to get you started!",
+  "onboarding-welcome-content": "Thank you for installing the Zotero Replication Checker!\n\nThis plugin helps you discover replication studies by automatically checking your library items against the FORRT Replication Database (FReD).\n\n✨ Key Features:\n• Automatic checking of DOIs against replication database\n• Works with entire library, collections, or individual items\n• Creates linked notes with replication information\n• Tags items with replication status\n• Add original studies when you have replications\n• Ban unwanted replications from future checks\n\nLet's take a quick tour to get you started!",
 
   "onboarding-tools-title": "Check Your Entire Library",
   "onboarding-tools-content": "📍 Location: Tools → Check Current Library for Replications\n\n🔍 What it does:\n• Scans all items with DOIs\n• Queries FReD database\n• Creates notes with details\n• Tags items by outcome\n\n💡 Tip: Takes a few minutes depending on library size.",
 
   "onboarding-context-title": "Check Collections and Items",
-  "onboarding-context-content": "📚 For Collections:\nRight-click collection → Check for Replications\n\n📄 For Individual Items:\nRight-click items → Check for Replications\n\n⚙️ Preferences:\nEdit → Settings → Replication Checker\n• Auto-check frequency\n• Auto-check new items\n\n💡 Access this guide anytime:\nHelp → Replication Checker User Guide\n\nYou're ready! 🎉",
+  "onboarding-context-content": "📚 For Collections:\nRight-click collection → Check for Replications\n\n📄 For Individual Items:\nRight-click items → Check for Replications\n\n🚫 Ban Replications:\nRight-click replication items → Ban Replication\n• Prevents unwanted replications from being re-added\n\n⚙️ Preferences:\nEdit → Settings → Replication Checker\n• Auto-check frequency\n• Auto-check new items",
+
+  "onboarding-scan-title": "Ready to Scan Your Library?",
+  "onboarding-scan-content": "Would you like to scan your library for replications now?\n\n• Click \"Yes\" to start scanning\n  (this may take a few minutes)\n\n• Click \"No\" to skip - you can always scan later from Tools menu\n\n💡 Access this guide anytime:\nHelp → Replication Checker User Guide",
 } as const;
 
 /**

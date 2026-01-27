@@ -105,6 +105,64 @@ replication-checker-li-doi-label = DOI:
 replication-checker-li-outcome = Author Reported Outcome:
 replication-checker-li-link = This study has a linked report:
 
+## Onboarding
+onboarding-welcome-title = Welcome to Replication Checker!
+onboarding-welcome-content =
+    Thank you for installing the Zotero Replication Checker!
+
+    This plugin helps you discover replication studies by automatically checking your library items against the FORRT Replication Database (FReD).
+
+    ✨ Key Features:
+    • Automatic checking of DOIs against replication database
+    • Works with entire library, collections, or individual items
+    • Creates linked notes with replication information
+    • Tags items with replication status
+    • Add original studies when you have replications
+    • Ban unwanted replications from future checks
+
+    Let's take a quick tour to get you started!
+
+onboarding-tools-title = Check Your Entire Library
+onboarding-tools-content =
+    📍 Location: Tools → Check Current Library for Replications
+
+    🔍 What it does:
+    • Scans all items with DOIs
+    • Queries FReD database
+    • Creates notes with details
+    • Tags items by outcome
+
+    💡 Tip: Takes a few minutes depending on library size.
+
+onboarding-context-title = Check Collections and Items
+onboarding-context-content =
+    📚 For Collections:
+    Right-click collection → Check for Replications
+
+    📄 For Individual Items:
+    Right-click items → Check for Replications
+
+    🚫 Ban Replications:
+    Right-click replication items → Ban Replication
+    • Prevents unwanted replications from being re-added
+
+    ⚙️ Preferences:
+    Edit → Settings → Replication Checker
+    • Auto-check frequency
+    • Auto-check new items
+
+onboarding-scan-title = Ready to Scan Your Library?
+onboarding-scan-content =
+    Would you like to scan your library for replications now?
+
+    • Click "Yes" to start scanning
+      (this may take a few minutes)
+
+    • Click "No" to skip - you can always scan later from Tools menu
+
+    💡 Access this guide anytime:
+    Help → Replication Checker User Guide
+
 ## First Run Prompt
 replication-checker-prompt-title = Welcome to Zotero Replication Checker!
 replication-checker-prompt-first-run =

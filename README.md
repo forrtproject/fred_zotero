@@ -218,7 +218,7 @@ The plugin supports multiple languages and automatically uses your Zotero langua
 
 **Adding new languages:**
 
-Want to use the plugin in your language? See [LOCALIZATION.md](LOCALIZATION.md) for a complete guide on adding translations. Contributing a translation is easy - just copy the English `.ftl` file and translate the strings while preserving placeholders.
+Want to use the plugin in your language? See [LOCALIZATION.md](docs\LOCALIZATION.md) for a complete guide on adding translations. Contributing a translation is easy - just copy the English `.ftl` file and translate the strings while preserving placeholders.
 
 
 ## Feedback

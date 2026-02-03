@@ -157,16 +157,23 @@ export interface ReplicationCheckerConfig {
 }
 
 /**
+ * Type of blacklisted item
+ */
+export type BlacklistEntryType = 'replication' | 'reproduction';
+
+/**
  * A single entry in the blacklist
  */
 export interface BlacklistEntry {
   itemID: number;           // Zotero item ID when blacklisted
-  doi: string;              // DOI of the replication (primary identifier)
-  title: string;            // Title of the replication
+  doi: string;              // DOI of the replication/reproduction (primary identifier)
+  url?: string;             // URL of the item (used as identifier when no DOI, especially for reproductions)
+  title: string;            // Title of the replication/reproduction
   originalTitle: string;    // Title of the original paper
   originalDOI?: string;     // DOI of the original paper (if available)
   dateAdded: string;        // ISO timestamp when banned
   reason?: 'manual' | 'deletion';  // How it was blacklisted
+  type: BlacklistEntryType; // Type of entry: 'replication' or 'reproduction'
 }
 
 /**
@@ -175,4 +182,37 @@ export interface BlacklistEntry {
 export interface BlacklistData {
   version: number;          // Schema version for future migrations
   entries: BlacklistEntry[];
+}
+
+/**
+ * Reproduction outcomes (6 possible values)
+ */
+export type ReproductionOutcome =
+  | 'computionally successful, robust'
+  | 'computionally successful, robustness challenges'
+  | 'computionally successful, robustness not checked'
+  | 'computational issues, robust'
+  | 'computational issues, robustness challenges'
+  | 'computational issues, robustness not checked';
+
+/**
+ * A single entry in the reproduction blacklist
+ */
+export interface ReproductionBlacklistEntry {
+  itemID: number;           // Zotero item ID when blacklisted
+  doi: string;              // DOI of the reproduction (primary identifier) - can be empty for reproductions
+  url: string;              // URL of the reproduction (used as identifier when no DOI)
+  title: string;            // Title of the reproduction
+  originalTitle: string;    // Title of the original paper
+  originalDOI?: string;     // DOI of the original paper (if available)
+  dateAdded: string;        // ISO timestamp when banned
+  reason?: 'manual' | 'deletion';  // How it was blacklisted
+}
+
+/**
+ * Reproduction blacklist data structure stored in preferences
+ */
+export interface ReproductionBlacklistData {
+  version: number;          // Schema version for future migrations
+  entries: ReproductionBlacklistEntry[];
 }

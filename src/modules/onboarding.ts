@@ -20,24 +20,28 @@ interface OnboardingScreen {
 
 export class OnboardingManager {
   private currentScreen = 0;
-  private readonly screens: OnboardingScreen[] = [
-    {
-      title: getString("onboarding-welcome-title"),
-      content: getString("onboarding-welcome-content"),
-    },
-    {
-      title: getString("onboarding-tools-title"),
-      content: getString("onboarding-tools-content"),
-    },
-    {
-      title: getString("onboarding-context-title"),
-      content: getString("onboarding-context-content"),
-    },
-    {
-      title: getString("onboarding-scan-title"),
-      content: getString("onboarding-scan-content"),
-    },
-  ];
+
+  // Screens are computed lazily so getString() runs after locale is loaded
+  private get screens(): OnboardingScreen[] {
+    return [
+      {
+        title: getString("onboarding-welcome-title"),
+        content: getString("onboarding-welcome-content"),
+      },
+      {
+        title: getString("onboarding-tools-title"),
+        content: getString("onboarding-tools-content"),
+      },
+      {
+        title: getString("onboarding-context-title"),
+        content: getString("onboarding-context-content"),
+      },
+      {
+        title: getString("onboarding-scan-title"),
+        content: getString("onboarding-scan-content"),
+      },
+    ];
+  }
 
   /**
    * Check if onboarding should be shown

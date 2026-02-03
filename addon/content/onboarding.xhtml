@@ -21,11 +21,18 @@
 
       function init() {
         const args = window.arguments[0];
-        screens = args.screens;
         onComplete = args.onComplete;
         triggerHighlight = args.triggerHighlight;
         clearHighlights = args.clearHighlights;
         showScanPrompt = args.showScanPrompt || false;
+
+        // If not showing scan prompt (User Guide mode), only show first 3 screens
+        if (!showScanPrompt && args.screens.length > 3) {
+          screens = args.screens.slice(0, 3);
+        } else {
+          screens = args.screens;
+        }
+
         currentScreen = 0;
         updateScreen();
       }

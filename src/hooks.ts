@@ -6,11 +6,162 @@
 import { replicationChecker } from "./modules/replicationChecker";
 import { onboardingManager } from "./modules/onboarding";
 import { blacklistManager } from "./modules/blacklistManager";
+import { reproductionHandler } from "./modules/reproductionHandler";
 import { config } from "../package.json";
 import { createZToolkit } from "./utils/ztoolkit";
 import { getString } from "./utils/strings";
+import { TAG_IS_REPLICATION, TAG_IS_REPRODUCTION, TAG_ADDED_BY_CHECKER } from "./utils/tags";
 
 const ztoolkit = createZToolkit();
+
+/**
+ * Load and parse FTL (Fluent) localization file
+ * This is a simple parser that handles basic FTL syntax
+ */
+async function loadFTLStrings(
+  rootURI: string,
+  locale: string,
+  filename: string
+): Promise<Record<string, string>> {
+  const strings: Record<string, string> = {};
+
+  // Try locale-specific file first, then fall back to en-US
+  const localesToTry = [locale, "en-US"];
+
+  for (const loc of localesToTry) {
+    // Locale files are registered at chrome://addonRef-locale/content/ in bootstrap.js
+    // This maps to the addon's locale/ directory
+    const ftlURL = `chrome://${config.addonRef}-locale/content/${loc}/${filename}`;
+    Zotero.debug(`[ReplicationChecker] Trying to load FTL from: ${ftlURL}`);
+
+    try {
+      // Use XMLHttpRequest for chrome:// URLs (fetch doesn't work with chrome://)
+      const ftlContent = await loadFileFromURL(ftlURL);
+
+      if (ftlContent) {
+        Zotero.debug(`[ReplicationChecker] Loaded FTL file (${ftlContent.length} chars) from ${ftlURL}`);
+
+        // Parse the FTL content
+        parseFTL(ftlContent, strings);
+
+        if (Object.keys(strings).length > 0) {
+          Zotero.debug(`[ReplicationChecker] Parsed ${Object.keys(strings).length} strings from ${loc} locale`);
+          return strings;
+        }
+      }
+    } catch (e) {
+      Zotero.debug(`[ReplicationChecker] Error loading FTL from ${ftlURL}: ${e}`);
+    }
+  }
+
+  return strings;
+}
+
+/**
+ * Load a file from a chrome:// URL using XMLHttpRequest
+ * fetch() doesn't work with chrome:// URLs in Firefox/Zotero
+ */
+function loadFileFromURL(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.overrideMimeType("text/plain");
+
+      xhr.onload = function () {
+        if (xhr.status === 200 || xhr.status === 0) {
+          // status 0 is valid for chrome:// URLs
+          resolve(xhr.responseText);
+        } else {
+          Zotero.debug(`[ReplicationChecker] XHR failed for ${url}: status ${xhr.status}`);
+          resolve(null);
+        }
+      };
+
+      xhr.onerror = function () {
+        Zotero.debug(`[ReplicationChecker] XHR error for ${url}`);
+        resolve(null);
+      };
+
+      xhr.send();
+    } catch (e) {
+      Zotero.debug(`[ReplicationChecker] XHR exception for ${url}: ${e}`);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Parse FTL content into a key-value map
+ * Handles basic Fluent syntax including multi-line values
+ */
+function parseFTL(content: string, strings: Record<string, string>): void {
+  // The build process prefixes all FTL keys with addonRef (e.g., "replicationChecker-")
+  // We need to strip this prefix so keys match what getString() looks up
+  const prefix = `${config.addonRef}-`;
+
+  const lines = content.split("\n");
+  let currentKey = "";
+  let currentValue = "";
+  let inMultiline = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip comments
+    if (line.trim().startsWith("#")) {
+      continue;
+    }
+
+    // Check for new key-value pair
+    const match = line.match(/^([a-zA-Z][a-zA-Z0-9_-]*)\s*=\s*(.*)$/);
+    if (match) {
+      // Save previous key-value if exists
+      if (currentKey && currentValue) {
+        strings[currentKey] = currentValue.trim();
+      }
+
+      // Strip the build-added addonRef prefix from keys
+      let key = match[1];
+      if (key.startsWith(prefix)) {
+        key = key.substring(prefix.length);
+      }
+      currentKey = key;
+      currentValue = match[2];
+
+      // Check if this is the start of a multi-line value
+      if (currentValue === "" || currentValue.trim() === "") {
+        inMultiline = true;
+        currentValue = "";
+      } else {
+        inMultiline = false;
+      }
+    } else if (inMultiline && currentKey) {
+      // Handle multi-line continuation (lines starting with whitespace)
+      if (line.startsWith("    ") || line.startsWith("\t")) {
+        currentValue += (currentValue ? "\n" : "") + line.trim();
+      } else if (line.trim() === "") {
+        // Empty line might be part of multi-line value
+        if (currentValue) {
+          currentValue += "\n";
+        }
+      } else {
+        // End of multi-line value
+        if (currentKey && currentValue) {
+          strings[currentKey] = currentValue.trim();
+        }
+        currentKey = "";
+        currentValue = "";
+        inMultiline = false;
+      }
+    }
+  }
+
+  // Don't forget the last key-value pair
+  if (currentKey && currentValue) {
+    strings[currentKey] = currentValue.trim();
+  }
+}
 
 export async function onStartup() {
   await Promise.all([
@@ -25,26 +176,27 @@ export async function onStartup() {
     // Initialize localization
     const rootURI = `chrome://${config.addonRef}/content/`;
 
-    // Load locale bundle using Zotero's Localization API
+    // Load locale using direct FTL file parsing (more reliable than Firefox Localization API)
     const locale = Zotero.locale || "en-US";
-    const localeURI = `${rootURI}locale/${locale}/${config.addonRef}-replication-checker.ftl`;
+    // Build process prefixes the addon reference to the filename
+    const localeFilename = `${config.addonRef}-replication-checker.ftl`;
+
+    Zotero.debug(`[ReplicationChecker] Loading locale: ${locale}`);
 
     try {
-      // Try to load the localized .ftl file
-      const L10n = new (Zotero as any).Localization([localeURI], true);
-      addon.data.locale = { current: L10n };
-      Zotero.debug(`[ReplicationChecker] Locale loaded: ${locale}`);
-    } catch (e) {
-      // Fallback to English if locale not available
-      try {
-        const fallbackURI = `${rootURI}locale/en-US/${config.addonRef}-replication-checker.ftl`;
-        const L10n = new (Zotero as any).Localization([fallbackURI], true);
-        addon.data.locale = { current: L10n };
-        Zotero.debug(`[ReplicationChecker] Fallback to en-US locale`);
-      } catch (fallbackError) {
-        Zotero.debug(`[ReplicationChecker] Could not load locale files, using hardcoded strings`);
-        addon.data.locale = { current: null };
+      // Parse FTL file directly - this is more reliable than the Firefox Localization API
+      const ftlStrings = await loadFTLStrings(rootURI, locale, localeFilename);
+
+      if (Object.keys(ftlStrings).length > 0) {
+        (addon.data as any).locale = { strings: ftlStrings };
+        Zotero.debug(`[ReplicationChecker] Loaded ${Object.keys(ftlStrings).length} strings for locale: ${locale}`);
+      } else {
+        Zotero.debug(`[ReplicationChecker] No strings loaded, using hardcoded fallback`);
+        (addon.data as any).locale = { strings: null };
       }
+    } catch (e) {
+      Zotero.debug(`[ReplicationChecker] Failed to load locale: ${e}`);
+      (addon.data as any).locale = { strings: null };
     }
 
     // Expose addon globally for getString to access
@@ -56,6 +208,10 @@ export async function onStartup() {
     // Initialize blacklist manager
     await blacklistManager.init();
     Zotero.debug("[ReplicationChecker] Blacklist manager initialized");
+
+    // Initialize reproduction handler and blacklist manager
+    await reproductionHandler.init();
+    Zotero.debug("[ReplicationChecker] Reproduction handler initialized");
 
     // Expose blacklist manager globally for preference pane access
     (Zotero as any).ReplicationChecker.blacklistManager = blacklistManager;
@@ -149,37 +305,39 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     });
     Zotero.debug("[ReplicationChecker] Added Item context menu item");
 
-    // Register "Ban Replication" context menu item
+    // Register "Ban Replication" context menu item - handles both replications and reproductions
     ztoolkit.Menu.register("item", {
       tag: "menuitem",
       id: "replication-checker-ban-menu",
       label: getString("replication-checker-context-menu-ban"),
       icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       getVisibility: (elem, ev) => {
-        // Only show for replication items
+        // Show for replication or reproduction items
         const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
         return selectedItems.some((item: Zotero.Item) =>
-          item.hasTag(getString("replication-checker-tag-is-replication")) ||
-          item.hasTag(getString("replication-checker-tag-added-by-checker"))
+          item.hasTag(TAG_IS_REPLICATION) ||
+          item.hasTag(TAG_IS_REPRODUCTION) ||
+          item.hasTag(TAG_ADDED_BY_CHECKER)
         );
       },
       commandListener: () => {
-        replicationChecker.banSelectedReplications();
+        // Call the unified ban function that handles both types
+        replicationChecker.banSelectedItems();
       },
     });
     Zotero.debug("[ReplicationChecker] Added Ban Replication context menu item");
 
-    // Register "Add Original Study" context menu item
+    // Register "Add Original Study" context menu item - for both replications and reproductions
     ztoolkit.Menu.register("item", {
       tag: "menuitem",
       id: "replication-checker-add-original-menu",
       label: getString("replication-checker-context-menu-add-original"),
       icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
       getVisibility: (elem, ev) => {
-        // Only show for items tagged as "Is Replication"
+        // Show for items tagged as "Is Replication" or "Is Reproduction"
         const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
         return selectedItems.some((item: Zotero.Item) =>
-          item.hasTag(getString("replication-checker-tag-is-replication"))
+          item.hasTag(TAG_IS_REPLICATION) || item.hasTag(TAG_IS_REPRODUCTION)
         );
       },
       commandListener: () => {
@@ -360,7 +518,7 @@ export async function onShutdown() {
 export async function initBlacklistUI(doc: Document) {
   Zotero.debug("[ReplicationChecker Prefs] initBlacklistUI called");
 
-  let selectedDOI: string | null = null;
+  let selectedIdentifier: string | null = null;
   let prefObserverSymbol: symbol | null = null;
 
   async function loadBlacklistUI() {
@@ -389,7 +547,7 @@ export async function initBlacklistUI(doc: Document) {
         const emptyRow = doc.createElement("tr");
         emptyRow.id = "blacklist-empty-row";
         const emptyCell = doc.createElement("td");
-        emptyCell.setAttribute("colspan", "3");
+        emptyCell.setAttribute("colspan", "4");
         emptyCell.style.padding = "20px";
         emptyCell.style.textAlign = "center";
         emptyCell.style.color = "#999";
@@ -400,7 +558,7 @@ export async function initBlacklistUI(doc: Document) {
 
         const removeBtn = doc.getElementById("blacklist-remove-btn") as HTMLButtonElement;
         if (removeBtn) removeBtn.disabled = true;
-        selectedDOI = null;
+        selectedIdentifier = null;
         return;
       }
 
@@ -411,9 +569,11 @@ export async function initBlacklistUI(doc: Document) {
         row.style.cursor = "pointer";
         row.style.borderBottom = "1px solid #ddd";
         row.style.backgroundColor = "#ffffff";
-        row.setAttribute("data-doi", entry.doi);
+        // Use DOI if available, otherwise use URL as identifier
+        const identifier = entry.doi || entry.url || "";
+        row.setAttribute("data-identifier", identifier);
 
-        // Replicated Article column
+        // Replication Article column
         const replicatedCell = doc.createElement("td");
         replicatedCell.style.padding = "8px";
         replicatedCell.style.borderRight = "1px solid #ddd";
@@ -429,6 +589,15 @@ export async function initBlacklistUI(doc: Document) {
         originalCell.style.fontSize = "0.9em";
         originalCell.textContent = entry.originalTitle || "Unknown Original";
 
+        // Type column
+        const typeCell = doc.createElement("td");
+        typeCell.style.padding = "8px";
+        typeCell.style.textAlign = "center";
+        typeCell.style.borderRight = "1px solid #ddd";
+        typeCell.style.color = "#333333";
+        typeCell.style.fontSize = "0.85em";
+        typeCell.textContent = entry.type === 'reproduction' ? 'Reproduction' : 'Replication';
+
         // Banned On column
         const dateCell = doc.createElement("td");
         dateCell.style.padding = "8px";
@@ -440,6 +609,7 @@ export async function initBlacklistUI(doc: Document) {
 
         row.appendChild(replicatedCell);
         row.appendChild(originalCell);
+        row.appendChild(typeCell);
         row.appendChild(dateCell);
 
         // Click handler for row selection
@@ -471,7 +641,7 @@ export async function initBlacklistUI(doc: Document) {
               (cell as HTMLElement).style.color = "#333333";
             }
           });
-          selectedDOI = entry.doi;
+          selectedIdentifier = identifier;
 
           // Enable remove button
           const removeBtn = doc.getElementById("blacklist-remove-btn") as HTMLButtonElement;
@@ -488,12 +658,12 @@ export async function initBlacklistUI(doc: Document) {
   }
 
   async function removeSelectedBlacklist() {
-    if (!selectedDOI) return;
+    if (!selectedIdentifier) return;
 
     try {
-      await blacklistManager.removeFromBlacklist(selectedDOI);
-      Zotero.debug(`[ReplicationChecker Prefs] Removed ${selectedDOI} from blacklist`);
-      selectedDOI = null;
+      await blacklistManager.removeFromBlacklist(selectedIdentifier);
+      Zotero.debug(`[ReplicationChecker Prefs] Removed ${selectedIdentifier} from blacklist`);
+      selectedIdentifier = null;
       await loadBlacklistUI();
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
@@ -515,7 +685,7 @@ export async function initBlacklistUI(doc: Document) {
     try {
       await blacklistManager.clearBlacklist();
       Zotero.debug("[ReplicationChecker Prefs] Cleared all blacklist entries");
-      selectedDOI = null;
+      selectedIdentifier = null;
       await loadBlacklistUI();
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));

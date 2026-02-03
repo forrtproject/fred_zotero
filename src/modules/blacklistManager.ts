@@ -1,19 +1,20 @@
 /**
  * Blacklist Manager
- * Manages banned replication items that should not be re-added during checks
+ * Manages banned replication and reproduction items that should not be re-added during checks
  */
 
-import type { BlacklistEntry, BlacklistData } from "../types/replication";
+import type { BlacklistEntry, BlacklistData, BlacklistEntryType } from "../types/replication";
 
 const BLACKLIST_PREF = "replication-checker.blacklist";
 
 /**
- * Manages the blacklist of banned replication items
- * Provides persistence via Zotero preferences and fast DOI lookup
+ * Manages the blacklist of banned replication and reproduction items
+ * Provides persistence via Zotero preferences and fast DOI/URL lookup
  */
 class BlacklistManager {
-  private blacklist: BlacklistData = { version: 1, entries: [] };
+  private blacklist: BlacklistData = { version: 2, entries: [] };
   private doiIndex: Set<string> = new Set();
+  private urlIndex: Set<string> = new Set();
   private initialized: boolean = false;
 
   /**
@@ -31,7 +32,7 @@ class BlacklistManager {
 
       if (!prefValue || typeof prefValue !== 'string' || prefValue === '') {
         Zotero.debug("BlacklistManager: No existing blacklist, initializing empty");
-        this.blacklist = { version: 1, entries: [] };
+        this.blacklist = { version: 2, entries: [] };
         this.initialized = true;
         return;
       }
@@ -47,6 +48,13 @@ class BlacklistManager {
         throw new Error('Invalid blacklist structure: version is not a number');
       }
 
+      // Migrate old entries without type field
+      for (const entry of this.blacklist.entries) {
+        if (!entry.type) {
+          entry.type = 'replication'; // Default to replication for old entries
+        }
+      }
+
       Zotero.debug(`BlacklistManager: Loaded ${this.blacklist.entries.length} blacklisted entries`);
 
     } catch (error) {
@@ -55,27 +63,32 @@ class BlacklistManager {
           error instanceof Error ? error.message : String(error)
         }`)
       );
-      this.blacklist = { version: 1, entries: [] };
+      this.blacklist = { version: 2, entries: [] };
       await this.saveBlacklist();
     }
 
-    // Build DOI index for O(1) lookup
+    // Build indexes for O(1) lookup
     this.rebuildIndex();
     this.initialized = true;
   }
 
   /**
-   * Rebuild the DOI index from current entries
+   * Rebuild the DOI and URL indexes from current entries
    */
   private rebuildIndex(): void {
     this.doiIndex.clear();
+    this.urlIndex.clear();
     for (const entry of this.blacklist.entries) {
       const normalizedDoi = this.normalizeDOI(entry.doi);
       if (normalizedDoi) {
         this.doiIndex.add(normalizedDoi);
       }
+      const normalizedUrl = this.normalizeUrl(entry.url);
+      if (normalizedUrl) {
+        this.urlIndex.add(normalizedUrl);
+      }
     }
-    Zotero.debug(`BlacklistManager: Index rebuilt with ${this.doiIndex.size} DOIs`);
+    Zotero.debug(`BlacklistManager: Index rebuilt with ${this.doiIndex.size} DOIs and ${this.urlIndex.size} URLs`);
   }
 
   /**
@@ -102,6 +115,20 @@ class BlacklistManager {
   }
 
   /**
+   * Normalize URL for consistent comparison
+   */
+  private normalizeUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+
+    let normalized = String(url).trim().toLowerCase();
+
+    // Remove trailing slashes
+    normalized = normalized.replace(/\/+$/, '');
+
+    return normalized || null;
+  }
+
+  /**
    * Save blacklist to preferences
    */
   private async saveBlacklist(): Promise<void> {
@@ -120,7 +147,7 @@ class BlacklistManager {
   }
 
   /**
-   * Add a replication to the blacklist
+   * Add an entry to the blacklist
    */
   async addToBlacklist(entry: BlacklistEntry): Promise<void> {
     if (!this.initialized) {
@@ -128,39 +155,62 @@ class BlacklistManager {
     }
 
     const normalizedDoi = this.normalizeDOI(entry.doi);
-    if (!normalizedDoi) {
-      Zotero.debug(`BlacklistManager: Cannot blacklist entry - invalid DOI: ${entry.doi}`);
+    const normalizedUrl = this.normalizeUrl(entry.url);
+
+    if (!normalizedDoi && !normalizedUrl) {
+      Zotero.debug(`BlacklistManager: Cannot blacklist entry - no DOI or URL: ${entry.title}`);
       return;
     }
 
-    // Check if already blacklisted
-    if (this.doiIndex.has(normalizedDoi)) {
+    // Check if already blacklisted by DOI or URL
+    if (normalizedDoi && this.doiIndex.has(normalizedDoi)) {
       Zotero.debug(`BlacklistManager: DOI already blacklisted: ${normalizedDoi}`);
       return;
     }
+    if (normalizedUrl && this.urlIndex.has(normalizedUrl)) {
+      Zotero.debug(`BlacklistManager: URL already blacklisted: ${normalizedUrl}`);
+      return;
+    }
 
-    // Add to entries and index
+    // Ensure type is set
+    if (!entry.type) {
+      entry.type = 'replication';
+    }
+
+    // Add to entries and indexes
     this.blacklist.entries.push(entry);
-    this.doiIndex.add(normalizedDoi);
+    if (normalizedDoi) {
+      this.doiIndex.add(normalizedDoi);
+    }
+    if (normalizedUrl) {
+      this.urlIndex.add(normalizedUrl);
+    }
 
     // Persist
     await this.saveBlacklist();
-    Zotero.debug(`BlacklistManager: Added to blacklist: ${entry.title} (${normalizedDoi})`);
+    Zotero.debug(`BlacklistManager: Added to blacklist: ${entry.title} (${normalizedDoi || normalizedUrl}) [${entry.type}]`);
   }
 
   /**
-   * Check if a DOI is blacklisted
+   * Check if a DOI or URL is blacklisted
    */
-  isBlacklisted(doi: string | null | undefined): boolean {
+  isBlacklisted(doi: string | null | undefined, url?: string | null | undefined): boolean {
     if (!this.initialized) {
       Zotero.debug('BlacklistManager: isBlacklisted called before initialization, returning false');
       return false;
     }
 
     const normalizedDoi = this.normalizeDOI(doi);
-    if (!normalizedDoi) return false;
+    if (normalizedDoi && this.doiIndex.has(normalizedDoi)) {
+      return true;
+    }
 
-    return this.doiIndex.has(normalizedDoi);
+    const normalizedUrl = this.normalizeUrl(url);
+    if (normalizedUrl && this.urlIndex.has(normalizedUrl)) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -181,6 +231,8 @@ class BlacklistManager {
     replicationTitle: string;
     originalTitle: string;
     doi: string;
+    url: string;
+    type: BlacklistEntryType;
     dateAdded: string;
   }> {
     if (!this.initialized) {
@@ -190,41 +242,48 @@ class BlacklistManager {
     return this.blacklist.entries.map(entry => ({
       replicationTitle: entry.title,
       originalTitle: entry.originalTitle,
-      doi: entry.doi,
+      doi: entry.doi || '',
+      url: entry.url || '',
+      type: entry.type || 'replication',
       dateAdded: entry.dateAdded,
     }));
   }
 
   /**
-   * Remove a specific entry from the blacklist by DOI
+   * Remove a specific entry from the blacklist by DOI or URL
    */
-  async removeFromBlacklist(doi: string): Promise<void> {
+  async removeFromBlacklist(identifier: string): Promise<void> {
     if (!this.initialized) {
       throw new Error('BlacklistManager not initialized');
     }
 
-    const normalizedDoi = this.normalizeDOI(doi);
-    if (!normalizedDoi) {
-      Zotero.debug(`BlacklistManager: Cannot remove - invalid DOI: ${doi}`);
-      return;
-    }
+    const normalizedDoi = this.normalizeDOI(identifier);
+    const normalizedUrl = this.normalizeUrl(identifier);
 
-    // Find and remove entry
+    // Find and remove entry by DOI or URL
     const initialLength = this.blacklist.entries.length;
     this.blacklist.entries = this.blacklist.entries.filter(entry => {
       const entryNormalizedDoi = this.normalizeDOI(entry.doi);
-      return entryNormalizedDoi !== normalizedDoi;
+      const entryNormalizedUrl = this.normalizeUrl(entry.url);
+
+      if (normalizedDoi && entryNormalizedDoi === normalizedDoi) {
+        return false;
+      }
+      if (normalizedUrl && entryNormalizedUrl === normalizedUrl) {
+        return false;
+      }
+      return true;
     });
 
     if (this.blacklist.entries.length === initialLength) {
-      Zotero.debug(`BlacklistManager: DOI not found in blacklist: ${normalizedDoi}`);
+      Zotero.debug(`BlacklistManager: Identifier not found in blacklist: ${identifier}`);
       return;
     }
 
-    // Remove from index and persist
-    this.doiIndex.delete(normalizedDoi);
+    // Rebuild indexes and persist
+    this.rebuildIndex();
     await this.saveBlacklist();
-    Zotero.debug(`BlacklistManager: Removed from blacklist: ${normalizedDoi}`);
+    Zotero.debug(`BlacklistManager: Removed from blacklist: ${identifier}`);
   }
 
   /**
@@ -238,6 +297,7 @@ class BlacklistManager {
     const count = this.blacklist.entries.length;
     this.blacklist.entries = [];
     this.doiIndex.clear();
+    this.urlIndex.clear();
 
     await this.saveBlacklist();
     Zotero.debug(`BlacklistManager: Cleared ${count} entries from blacklist`);

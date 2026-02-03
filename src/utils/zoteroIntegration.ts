@@ -4,6 +4,7 @@
  */
 
 import type { ZoteroItemData } from "../types/replication";
+import { TAG_HAS_REPLICATION } from "./tags";
 
 /**
  * Get all DOIs from the active library
@@ -184,7 +185,7 @@ export async function hasReplicationTag(itemID: number): Promise<boolean> {
   if (!item) return false;
 
   const tags = item.getTags();
-  return tags.some((tag: any) => tag.tag === "Has Replication");
+  return tags.some((tag: any) => tag.tag === TAG_HAS_REPLICATION);
 }
 
 /**

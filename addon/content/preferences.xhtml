@@ -21,10 +21,10 @@
 
 <groupbox>
   <label>
-    <html:h2>Auto-Check Library for Replications</html:h2>
+    <html:h2 id="pref-autocheck-title-label">Auto-Check Library for Replications</html:h2>
   </label>
 
-  <html:p style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
+  <html:p id="pref-autocheck-description-label" style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
     Automatically check your library for replication studies at regular intervals
   </html:p>
 
@@ -60,21 +60,21 @@
     label="Automatically check newly added library items (recommended)"
   />
 
-  <html:p style="margin-top: 8px; font-size: 0.85em; color: #999;">
+  <html:p id="pref-autocheck-new-items-hint-label" style="margin-top: 8px; font-size: 0.85em; color: #999;">
     Disable this option if you prefer to run all replication checks manually.
   </html:p>
 
-  <html:p style="margin-top: 15px; font-size: 0.85em; color: #999;">
-    <html:strong>Note:</html:strong> Auto-check runs in the background when Zotero is open. You can still manually check using the Tools menu.
+  <html:p id="pref-autocheck-note-label" style="margin-top: 15px; font-size: 0.85em; color: #999;">
+    <html:strong id="pref-autocheck-note-strong">Note:</html:strong> Auto-check runs in the background when Zotero is open. You can still manually check using the Tools menu.
   </html:p>
 </groupbox>
 
 <groupbox>
   <label>
-    <html:h2>Banned Replications</html:h2>
+    <html:h2 id="pref-blacklist-title-label">Banned Replications</html:h2>
   </label>
 
-  <html:p style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
+  <html:p id="pref-blacklist-description-label" style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
     Manage replications you've banned from appearing in your library
   </html:p>
 
@@ -83,15 +83,16 @@
     <html:table id="blacklist-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
       <html:thead style="position: sticky; top: 0; background-color: #d3d3d3; border-bottom: 2px solid #666;">
         <html:tr>
-          <html:th style="padding: 8px; text-align: left; font-weight: bold; color: #000000; border-right: 1px solid #999;">Replicated Article</html:th>
-          <html:th style="padding: 8px; text-align: left; font-weight: bold; color: #000000; border-right: 1px solid #999;">Original Article</html:th>
-          <html:th style="padding: 8px; text-align: center; font-weight: bold; color: #000000; width: 120px;">Banned On</html:th>
+          <html:th id="pref-blacklist-col-replication-label" style="padding: 8px; text-align: left; font-weight: bold; color: #000000; border-right: 1px solid #999;">Replication Article</html:th>
+          <html:th id="pref-blacklist-col-original-label" style="padding: 8px; text-align: left; font-weight: bold; color: #000000; border-right: 1px solid #999;">Original Article</html:th>
+          <html:th id="pref-blacklist-col-type-label" style="padding: 8px; text-align: center; font-weight: bold; color: #000000; width: 100px; border-right: 1px solid #999;">Type</html:th>
+          <html:th id="pref-blacklist-col-banned-label" style="padding: 8px; text-align: center; font-weight: bold; color: #000000; width: 100px;">Banned On</html:th>
         </html:tr>
       </html:thead>
       <html:tbody id="blacklist-list">
         <!-- Dynamically populated via script -->
         <html:tr id="blacklist-empty-row">
-          <html:td colspan="3" style="padding: 20px; text-align: center; color: #999; font-style: italic;">
+          <html:td id="pref-blacklist-empty-label" colspan="4" style="padding: 20px; text-align: center; color: #999; font-style: italic;">
             No banned replications
           </html:td>
         </html:tr>
@@ -108,12 +109,81 @@
     </html:button>
   </html:div>
 
-  <html:p style="margin-top: 8px; font-size: 0.85em; color: #999;">
+  <html:p id="pref-blacklist-hint-label" style="margin-top: 8px; font-size: 0.85em; color: #999;">
     Banned replications will not be re-added during future checks. You can ban replications using the context menu.
   </html:p>
 </groupbox>
 
 <html:script><![CDATA[
+// Localize preference pane strings
+function localizePrefs() {
+  var addon = Zotero.ReplicationChecker;
+  if (!addon || !addon.data || !addon.data.locale || !addon.data.locale.strings) {
+    return;
+  }
+  var s = addon.data.locale.strings;
+
+  function setText(id, key) {
+    var el = document.getElementById(id);
+    if (el && s[key]) {
+      el.textContent = s[key];
+    }
+  }
+
+  function setLabel(id, key) {
+    var el = document.getElementById(id);
+    if (el && s[key]) {
+      el.setAttribute("label", s[key]);
+    }
+  }
+
+  // Auto-check section
+  setText("pref-autocheck-title-label", "pref-autocheck-title");
+  setText("pref-autocheck-description-label", "pref-autocheck-description");
+  setLabel("autocheck-disabled", "pref-autocheck-disabled");
+  setLabel("autocheck-daily", "pref-autocheck-daily");
+  setLabel("autocheck-weekly", "pref-autocheck-weekly");
+  setLabel("autocheck-monthly", "pref-autocheck-monthly");
+  setLabel("autocheck-new-items", "pref-autocheck-new-items");
+  setText("pref-autocheck-new-items-hint-label", "pref-autocheck-new-items-hint");
+
+  // Note field - reconstruct with bold "Note:" prefix
+  var noteEl = document.getElementById("pref-autocheck-note-label");
+  if (noteEl && s["pref-autocheck-note"]) {
+    noteEl.textContent = "";
+    var strong = document.createElementNS("http://www.w3.org/1999/xhtml", "strong");
+    // Extract "Note:" equivalent or use localized full string
+    var noteText = s["pref-autocheck-note"];
+    strong.textContent = noteText.split(":")[0] + ": ";
+    noteEl.appendChild(strong);
+    noteEl.appendChild(document.createTextNode(noteText.substring(noteText.indexOf(":") + 2)));
+  }
+
+  // Blacklist section
+  setText("pref-blacklist-title-label", "pref-blacklist-title");
+  setText("pref-blacklist-description-label", "pref-blacklist-description");
+  setText("pref-blacklist-col-replication-label", "pref-blacklist-col-replication");
+  setText("pref-blacklist-col-original-label", "pref-blacklist-col-original");
+  setText("pref-blacklist-col-type-label", "pref-blacklist-col-type");
+  setText("pref-blacklist-col-banned-label", "pref-blacklist-col-banned");
+  setText("pref-blacklist-empty-label", "pref-blacklist-empty");
+
+  // Buttons
+  var removeBtn = document.getElementById("blacklist-remove-btn");
+  if (removeBtn && s["pref-blacklist-remove"]) {
+    removeBtn.textContent = s["pref-blacklist-remove"];
+  }
+  var clearBtn = document.getElementById("blacklist-clear-btn");
+  if (clearBtn && s["pref-blacklist-clear"]) {
+    clearBtn.textContent = s["pref-blacklist-clear"];
+  }
+
+  setText("pref-blacklist-hint-label", "pref-blacklist-hint");
+}
+
+// Call localization
+localizePrefs();
+
 // Call the UI initializer from hooks.ts
 Zotero.debug('[ReplicationChecker Prefs] Preference pane script executing');
 

@@ -99,7 +99,7 @@ export type FluentMessageId =
   | 'replication-checker-tag-failure'
   | 'replication-checker-tag-has-been-replicated'
   | 'replication-checker-tag-has-been-reproduced'
-  | 'replication-checker-tag-in-fred'
+  | 'replication-checker-tag-in-flora'
   | 'replication-checker-tag-is-replication'
   | 'replication-checker-tag-mixed'
   | 'replication-checker-tag-readonly-origin'

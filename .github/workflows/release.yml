@@ -116,7 +116,7 @@ jobs:
           body: |
             ## Zotero Replication Checker ${{ steps.version.outputs.VERSION }}
 
-            Privacy-first plugin to discover replications from the FORRT Replication Database (FReD).
+            Privacy-first plugin to discover replications from the FORRT Literature Database (FLoRA).
 
             ---
 
@@ -178,7 +178,7 @@ jobs:
             ### 🙏 Credits
 
             - **FORRT Project** - For the comprehensive Replication Database
-            - **FReD Team** - For maintaining the replication data
+            - **FLoRA Team** - For maintaining the replication data
             - **Contributors** - Everyone who helped improve this plugin
 
             ---

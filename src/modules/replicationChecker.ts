@@ -12,7 +12,7 @@ import {
   TAG_HAS_REPLICATION, TAG_IS_REPLICATION, TAG_ADDED_BY_CHECKER,
   TAG_REPLICATION_SUCCESS, TAG_REPLICATION_FAILURE, TAG_REPLICATION_MIXED,
   TAG_READONLY_ORIGIN, TAG_HAS_BEEN_REPLICATED, TAG_HAS_BEEN_REPRODUCED,
-  TAG_IN_FRED, TAG_IS_REPRODUCTION, TAG_HAS_REPRODUCTION,
+  TAG_IN_FLORA, TAG_IS_REPRODUCTION, TAG_HAS_REPRODUCTION,
 } from "../utils/tags";
 import { blacklistManager } from "./blacklistManager";
 import { reproductionHandler } from "./reproductionHandler";
@@ -983,7 +983,7 @@ export class ReplicationCheckerPlugin {
 
         // Add tags to original
         await ZoteroIntegration.addTag(originalItemID, TAG_HAS_BEEN_REPLICATED);
-        await ZoteroIntegration.addTag(originalItemID, TAG_IN_FRED);
+        await ZoteroIntegration.addTag(originalItemID, TAG_IN_FLORA);
 
         // Add "Added by Replication Checker" tag only for newly created items
         if (isNewItem) {
@@ -1153,7 +1153,7 @@ export class ReplicationCheckerPlugin {
 
       // Tag the current item as "Is Replication"
       await ZoteroIntegration.addTag(itemID, TAG_IS_REPLICATION);
-      await ZoteroIntegration.addTag(itemID, TAG_IN_FRED);
+      await ZoteroIntegration.addTag(itemID, TAG_IN_FLORA);
       Zotero.debug(`[ReplicationChecker] Tagged item ${itemID} as "Is Replication"`);
 
       // Add outcome tag based on aggregated outcomes from all originals
@@ -1201,7 +1201,7 @@ export class ReplicationCheckerPlugin {
 
         // Add tags to original
         await ZoteroIntegration.addTag(originalItemID, TAG_HAS_BEEN_REPLICATED);
-        await ZoteroIntegration.addTag(originalItemID, TAG_IN_FRED);
+        await ZoteroIntegration.addTag(originalItemID, TAG_IN_FLORA);
 
         // Create bidirectional relationship
         item.addRelatedItem(originalItem);
@@ -1302,20 +1302,20 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
-   * Process an article that exists in FReD database
+   * Process an article that exists in FLoRA database
    * Tags the article based on whether it has replications, is a replication, etc.
    * @param itemID The Zotero item ID
    * @param result The DOICheckResult from the API
    */
-  private async processArticleInFReD(itemID: number, result: DOICheckResult): Promise<void> {
+  private async processArticleInFLoRA(itemID: number, result: DOICheckResult): Promise<void> {
     try {
       const item = await Zotero.Items.getAsync(itemID);
       if (!item) return;
 
-      Zotero.debug(`[ReplicationChecker] Processing article in FReD: ${result.doi}`);
+      Zotero.debug(`[ReplicationChecker] Processing article in FLoRA: ${result.doi}`);
 
-      // Tag the item as being in FReD
-      await ZoteroIntegration.addTag(itemID, TAG_IN_FRED);
+      // Tag the item as being in FLoRA
+      await ZoteroIntegration.addTag(itemID, TAG_IN_FLORA);
 
       // If this article has been replicated (has replications)
       if (result.replications.length > 0) {
@@ -1337,7 +1337,7 @@ export class ReplicationCheckerPlugin {
 
     } catch (error) {
       Zotero.logError(new Error(
-        `Error processing article in FReD for item ${itemID}: ${
+        `Error processing article in FLoRA for item ${itemID}: ${
           error instanceof Error ? error.message : String(error)
         }`
       ));

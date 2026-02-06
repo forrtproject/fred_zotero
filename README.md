@@ -175,7 +175,7 @@ If both a reproduction and replication are found, separate notes and tags are cr
 
 ### What Does Replication Outcome Mean?
 
-The plugin automatically creates a tag and an entry in the note based on the FLoRA Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Successful", "Replication: Failure" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FReD-data/blob/main/cos_report.html).
+The plugin automatically creates a tag and an entry in the note based on the FLoRA Database outcome column. This is coded based on how authors interpreted their results. Tags are created only for outcomes "Replication: Successful", "Replication: Failure" and "Replication: Mixed". This is to enable filtering in Zotero based on the replication outcome. Full info about coding of this variable can be found [here](https://github.com/forrtproject/FLoRA-data/blob/main/cos_report.html).
 
 ### What Does Reproduction Outcome Mean?
 

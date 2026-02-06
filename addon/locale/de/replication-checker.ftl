@@ -89,7 +89,7 @@ replication-checker-tag-mixed = Replikation: Gemischt
 replication-checker-tag-readonly-origin = Original in schreibgeschützter Bibliothek vorhanden
 replication-checker-tag-has-been-replicated = Wurde repliziert
 replication-checker-tag-has-been-reproduced = Wurde reproduziert
-replication-checker-tag-in-fred = In FReD
+replication-checker-tag-in-flora = In FLoRA
 
 ## Note Template
 replication-checker-note-title = Replikationen gefunden
@@ -97,7 +97,7 @@ replication-checker-note-warning = Dies ist eine automatisch generierte Notiz. B
 replication-checker-note-intro = Diese Studie wurde repliziert:
 replication-checker-note-feedback = War dieses Ergebnis hilfreich? Feedback geben <a href="{ $url }" target="_blank">hier</a>!
 replication-checker-note-data-issues = Haben Sie Probleme mit den Daten gefunden? Bitte melden Sie diese <a href="{ $url }" target="_blank">hier</a>!
-replication-checker-note-footer = Erstellt von Zotero Replikationsprüfer unter Verwendung der FORRT Replikationsdatenbank (FReD)
+replication-checker-note-footer = Erstellt von Zotero Replikationsprüfer unter Verwendung der FORRT Literaturdatenbank (FLoRA)
 
 ## Replication Item Details
 replication-checker-li-no-title = Kein Titel verfügbar
@@ -113,19 +113,19 @@ replication-checker-prompt-title = Willkommen beim Zotero Replikationsprüfer!
 replication-checker-prompt-first-run =
     Vielen Dank für die Installation des Zotero Replikationsprüfers!
 
-    Dieses Plugin hilft Ihnen, Replikationsstudien für Ihre Forschung zu entdecken, indem es Ihre Bibliothekseinträge mit der FORRT Replikationsdatenbank (FReD) abgleicht.
+    Dieses Plugin hilft Ihnen, Replikationsstudien für Ihre Forschung zu entdecken, indem es Ihre Bibliothekseinträge mit der FORRT Literaturdatenbank (FLoRA) abgleicht.
 
     Möchten Sie Ihre Bibliothek jetzt auf Replikationen scannen?
 
-    • Klicken Sie "Ja", um den Scan zu starten (dies kann einige Minuten dauern)
-    • Klicken Sie "Nein", um zu überspringen - Sie können später jederzeit über das Menü scannen
+    • Klicken Sie "OK", um den Scan zu starten (dies kann einige Minuten dauern)
+    • Klicken Sie "Abbrechen", um zu überspringen - Sie können später jederzeit über das Menü scannen
 
 ## Onboarding
 onboarding-welcome-title = Willkommen beim Replikationsprüfer!
 onboarding-welcome-content =
     Vielen Dank für die Installation des Zotero Replikationsprüfers!
 
-    Dieses Plugin hilft Ihnen, Replikationsstudien zu entdecken, indem es Ihre Bibliothekseinträge automatisch mit der FORRT Replikationsdatenbank (FReD) abgleicht.
+    Dieses Plugin hilft Ihnen, Replikationsstudien zu entdecken, indem es Ihre Bibliothekseinträge automatisch mit der FORRT Literaturdatenbank (FLoRA) abgleicht.
 
     ✨ Hauptfunktionen:
     • Automatische Prüfung von DOIs gegen die Replikationsdatenbank
@@ -143,7 +143,7 @@ onboarding-tools-content =
 
     🔍 Was es macht:
     • Durchsucht alle Einträge mit DOIs
-    • Fragt die FReD-Datenbank ab
+    • Fragt die FLoRA-Datenbank ab
     • Erstellt Notizen mit Details
     • Markiert Einträge nach Ergebnis
 
@@ -201,7 +201,7 @@ reproduction-checker-note-warning = Dies ist eine automatisch generierte Notiz. 
 reproduction-checker-note-intro = Diese Studie wurde reproduziert:
 reproduction-checker-note-feedback = War dieses Ergebnis hilfreich? Feedback geben <a href="{ $url }" target="_blank">hier</a>!
 reproduction-checker-note-data-issues = Haben Sie Probleme mit den Daten gefunden? Bitte melden Sie diese <a href="{ $url }" target="_blank">hier</a>!
-reproduction-checker-note-footer = Erstellt von Zotero Replikationsprüfer unter Verwendung der FORRT Replikationsdatenbank (FReD)
+reproduction-checker-note-footer = Erstellt von Zotero Replikationsprüfer unter Verwendung der FORRT Literaturdatenbank (FLoRA)
 
 ## Reproduction Feature - Item Details
 reproduction-checker-li-no-title = Kein Titel verfügbar

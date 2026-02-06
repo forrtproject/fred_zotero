@@ -14,7 +14,7 @@ export const TAG_REPLICATION_MIXED = "Replication: Mixed";
 export const TAG_READONLY_ORIGIN = "Original present in Read-Only Library";
 export const TAG_HAS_BEEN_REPLICATED = "Has Been Replicated";
 export const TAG_HAS_BEEN_REPRODUCED = "Has Been Reproduced";
-export const TAG_IN_FRED = "In FReD";
+export const TAG_IN_FLORA = "In FLoRA";
 
 // Reproduction tags
 export const TAG_HAS_REPRODUCTION = "Has Reproduction";

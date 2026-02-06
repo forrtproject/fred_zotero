@@ -1,5 +1,6 @@
 import { ZoteroToolkit } from "zotero-plugin-toolkit";
 import { config } from "../../package.json";
+import { getThemedIconPath } from "./theme";
 
 export { createZToolkit };
 
@@ -22,10 +23,8 @@ function initZToolkit(_ztoolkit: ReturnType<typeof createZToolkit>) {
   _ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false;
   _ztoolkit.UI.basicOptions.ui.enableElementDOMLog = false;
   _ztoolkit.basicOptions.api.pluginID = config.addonID;
-  _ztoolkit.ProgressWindow.setIconURI(
-    "default",
-    `chrome://${config.addonRef}/content/icons/favicon.png`
-  );
+  // Use theme-aware icon for progress window
+  _ztoolkit.ProgressWindow.setIconURI("default", getThemedIconPath());
 }
 
 import { BasicTool, unregister } from "zotero-plugin-toolkit";

@@ -56,9 +56,9 @@ export interface RelatedStudiesRecord {
 }
 
 /**
- * Main article entry from FReD API
+ * Main article entry from FLoRA API
  */
-export interface FReDArticle {
+export interface FLoRAArticle {
   doi: string;
   doi_hash: string;
   title: string;
@@ -79,7 +79,7 @@ export interface FReDArticle {
  */
 export interface PrefixLookupResponse {
   results: {
-    [prefix: string]: FReDArticle[];
+    [prefix: string]: FLoRAArticle[];
   };
 }
 

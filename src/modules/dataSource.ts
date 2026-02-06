@@ -1,6 +1,6 @@
 /**
  * Data source module for Replication Checker
- * Handles API communication for batch DOI queries with the new FReD API format
+ * Handles API communication for batch DOI queries with the FLoRA API format
  */
 
 import type { PrefixLookupRequest, PrefixLookupResponse, DOICheckResult } from "../types/replication";
@@ -15,7 +15,7 @@ export abstract class ReplicationDataSource {
 
 /**
  * API implementation of data source
- * Queries the FReD replication database via API
+ * Queries the FLoRA replication database via API
  */
 export class APIDataSource extends ReplicationDataSource {
   private apiUrl: string;
@@ -26,7 +26,7 @@ export class APIDataSource extends ReplicationDataSource {
   }
 
   async initialize(): Promise<void> {
-    Zotero.debug("[APIDataSource] Initialized with FReD API v1");
+    Zotero.debug("[APIDataSource] Initialized with FLoRA API v1");
   }
 
   /**

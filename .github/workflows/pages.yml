@@ -43,8 +43,8 @@ jobs:
         run: |
           mkdir -p docs
 
-          # Copy README.md as index
-          cp README.md docs/index.md
+          # Copy Website.md as index
+          cp docs/Website.md docs/index.md
 
           # Copy other documentation
           if [ -f "CONTRIBUTING.md" ]; then
@@ -75,7 +75,7 @@ jobs:
         run: |
           cat > docs/_config.yml << 'EOF'
           title: Zotero Replication Checker
-          description: Privacy-first plugin to discover replications from the FORRT Replication Database (FReD)
+          description: Privacy-first plugin to discover replications from the FORRT Literature Database (FLoRA)
 
           # Navigation
           navigation:
@@ -565,7 +565,7 @@ jobs:
                 <a href="{{ site.github.repository_url }}">GitHub</a>
                 <a href="{{ site.github.repository_url }}/releases">Releases</a>
                 <a href="{{ site.github.repository_url }}/issues">Issues</a>
-                <a href="https://forrt.org/replication-hub/">FReD Database</a>
+                <a href="https://forrt.org/replication-hub/">FLoRA Database</a>
               </p>
             </footer>
           </body>

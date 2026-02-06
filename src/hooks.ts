@@ -11,6 +11,13 @@ import { config } from "../package.json";
 import { createZToolkit } from "./utils/ztoolkit";
 import { getString } from "./utils/strings";
 import { TAG_IS_REPLICATION, TAG_IS_REPRODUCTION, TAG_ADDED_BY_CHECKER } from "./utils/tags";
+import {
+  initThemeObserver,
+  cleanupThemeObserver,
+  getThemedIconPath,
+  getThemedIconRelativePath,
+  onThemeChange,
+} from "./utils/theme";
 
 const ztoolkit = createZToolkit();
 
@@ -173,6 +180,10 @@ export async function onStartup() {
   Zotero.debug("[ReplicationChecker] Starting up...");
 
   try {
+    // Initialize theme observer for light/dark mode detection
+    initThemeObserver();
+    Zotero.debug("[ReplicationChecker] Theme observer initialized");
+
     // Initialize localization
     const rootURI = `chrome://${config.addonRef}/content/`;
 
@@ -229,12 +240,12 @@ export async function onStartup() {
       }
     );
 
-    // Register preference pane
+    // Register preference pane with theme-aware icon
     Zotero.PreferencePanes.register({
       pluginID: config.addonID,
       src: rootURI + "preferences.xhtml",
       label: config.addonName,
-      image: rootURI + "icons/favicon.png",
+      image: rootURI + getThemedIconRelativePath(),
     });
 
     Zotero.debug("[ReplicationChecker] Preference pane registered");
@@ -267,12 +278,12 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
   Zotero.debug("[ReplicationChecker] Loading main window");
 
   try {
-    // Register Tools menu item
+    // Register Tools menu item with theme-aware icon
     ztoolkit.Menu.register("menuTools", {
       tag: "menuitem",
       id: "replication-checker-tools-menu",
       label: getString("replication-checker-tools-menu"),
-      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      icon: getThemedIconPath(),
       commandListener: () => {
         replicationChecker.checkEntireLibrary();
       },
@@ -284,7 +295,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-help-guide",
       label: "Replication Checker User Guide",
-      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      icon: getThemedIconPath(),
       commandListener: async () => {
         Zotero.debug("[ReplicationChecker] Opening user guide");
         // Don't show scan prompt when opened from Help menu
@@ -298,7 +309,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-item-menu",
       label: getString("replication-checker-context-menu"),
-      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      icon: getThemedIconPath(),
       commandListener: () => {
         replicationChecker.checkSelectedItems();
       },
@@ -310,7 +321,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-ban-menu",
       label: getString("replication-checker-context-menu-ban"),
-      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      icon: getThemedIconPath(),
       getVisibility: (elem, ev) => {
         // Show for replication or reproduction items
         const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
@@ -332,7 +343,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-add-original-menu",
       label: getString("replication-checker-context-menu-add-original"),
-      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      icon: getThemedIconPath(),
       getVisibility: (elem, ev) => {
         // Show for items tagged as "Is Replication" or "Is Reproduction"
         const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
@@ -351,7 +362,7 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
       tag: "menuitem",
       id: "replication-checker-collection-menu",
       label: getString("replication-checker-context-menu"),
-      icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
+      icon: getThemedIconPath(),
       commandListener: () => {
         replicationChecker.checkSelectedCollection();
       },
@@ -386,7 +397,20 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
           } else if (result.completed) {
             Zotero.debug("[ReplicationChecker] User completed onboarding but declined scan");
           } else {
-            Zotero.debug("[ReplicationChecker] User skipped onboarding");
+            // User skipped onboarding - show separate first scan prompt
+            Zotero.debug("[ReplicationChecker] User skipped onboarding, showing separate first scan prompt");
+            const win = Zotero.getMainWindow();
+            if (win) {
+              const shouldScan = win.confirm(
+                getString("replication-checker-prompt-first-run")
+              );
+              if (shouldScan) {
+                Zotero.debug("[ReplicationChecker] User accepted first-run scan after skipping onboarding");
+                replicationChecker.checkEntireLibrary();
+              } else {
+                Zotero.debug("[ReplicationChecker] User declined first-run scan");
+              }
+            }
           }
         } else {
           Zotero.debug("[ReplicationChecker] First-run already done or onboarding not needed, skipping");
@@ -398,9 +422,185 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
     }, 3000);
 
     Zotero.debug("[ReplicationChecker] Main window UI setup complete");
+
+    // Register theme change listener to update menu icons dynamically
+    onThemeChange((newTheme) => {
+      Zotero.debug(`[ReplicationChecker] Updating menu icons for theme: ${newTheme}`);
+      updateMenuIcons(win);
+    });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     Zotero.logError(new Error(`[ReplicationChecker] Error setting up window UI: ${errorMsg}`));
+  }
+}
+
+/**
+ * Update all menu item icons when theme changes
+ */
+function updateMenuIcons(win: Window) {
+  const doc = win.document;
+  const newIconPath = getThemedIconPath();
+
+  const menuIds = [
+    "replication-checker-tools-menu",
+    "replication-checker-help-guide",
+    "replication-checker-item-menu",
+    "replication-checker-ban-menu",
+    "replication-checker-add-original-menu",
+    "replication-checker-collection-menu",
+  ];
+
+  for (const id of menuIds) {
+    const menuItem = doc.getElementById(id);
+    if (menuItem) {
+      menuItem.setAttribute("image", newIconPath);
+      Zotero.debug(`[ReplicationChecker] Updated icon for ${id}`);
+    }
+  }
+
+  // Also update preference pane icon in any open preferences windows
+  updatePreferencePaneIcons();
+}
+
+/**
+ * Update preference pane icons in all open preferences windows
+ */
+function updatePreferencePaneIcons() {
+  const rootURI = `chrome://${config.addonRef}/content/`;
+  const newIconPath = rootURI + getThemedIconRelativePath();
+
+  Zotero.debug(`[ReplicationChecker] updatePreferencePaneIcons called, newIconPath: ${newIconPath}`);
+
+  try {
+    // Get all windows and look for preferences windows
+    const windowMediator = (Components.classes as any)["@mozilla.org/appshell/window-mediator;1"]
+      .getService((Components.interfaces as any).nsIWindowMediator);
+    const enumerator = windowMediator.getEnumerator(null);
+
+    let windowCount = 0;
+    while (enumerator.hasMoreElements()) {
+      const win = enumerator.getNext() as Window;
+      windowCount++;
+
+      if (win.location?.href?.includes("preferences")) {
+        Zotero.debug(`[ReplicationChecker] Found preferences window: ${win.location.href}`);
+        const doc = win.document;
+
+        // Method 1: Look for elements with our plugin ID in the data-pane-id
+        const paneElements = doc.querySelectorAll(`[data-pane-id*="replication-checker"]`);
+        Zotero.debug(`[ReplicationChecker] Found ${paneElements.length} elements with data-pane-id containing replication-checker`);
+        for (const elem of paneElements) {
+          const img = elem.querySelector("image, img");
+          if (img) {
+            img.setAttribute("src", newIconPath);
+            Zotero.debug(`[ReplicationChecker] Updated preference pane icon via data-pane-id image element`);
+          }
+          // Try setting image attribute directly
+          if (elem.hasAttribute("image")) {
+            elem.setAttribute("image", newIconPath);
+            Zotero.debug(`[ReplicationChecker] Updated preference pane image attribute via data-pane-id`);
+          }
+        }
+
+        // Method 2: Look for elements with our plugin ID pattern
+        const pluginPanes = doc.querySelectorAll(`[id*="replication-checker"]`);
+        Zotero.debug(`[ReplicationChecker] Found ${pluginPanes.length} elements with id containing replication-checker`);
+        for (const pane of pluginPanes) {
+          Zotero.debug(`[ReplicationChecker] Found element: ${pane.tagName}#${pane.id}`);
+          const img = pane.querySelector("image, img");
+          if (img) {
+            img.setAttribute("src", newIconPath);
+            Zotero.debug(`[ReplicationChecker] Updated icon via plugin pane image element`);
+          }
+          if (pane.hasAttribute("image")) {
+            pane.setAttribute("image", newIconPath);
+            Zotero.debug(`[ReplicationChecker] Updated image attribute on plugin pane`);
+          }
+        }
+
+        // Method 3: Look for button elements in preferences sidebar (Zotero 7 uses buttons)
+        const buttons = doc.querySelectorAll("button");
+        for (const btn of buttons) {
+          const label = btn.getAttribute("label") || btn.textContent || "";
+          const id = btn.id || "";
+          if (label.includes("Replication Checker") || id.includes("replication-checker")) {
+            Zotero.debug(`[ReplicationChecker] Found button: ${btn.tagName}#${id}, label: ${label}`);
+            const img = btn.querySelector("image, img, .icon");
+            if (img) {
+              img.setAttribute("src", newIconPath);
+              Zotero.debug(`[ReplicationChecker] Updated button icon`);
+            }
+            if (btn.hasAttribute("image")) {
+              btn.setAttribute("image", newIconPath);
+              Zotero.debug(`[ReplicationChecker] Updated button image attribute`);
+            }
+          }
+        }
+
+        // Method 4: Try finding richlistitem elements (older XUL style)
+        const richlistItems = doc.querySelectorAll("richlistitem");
+        Zotero.debug(`[ReplicationChecker] Found ${richlistItems.length} richlistitem elements`);
+        for (const item of richlistItems) {
+          const label = item.getAttribute("label") || item.textContent || "";
+          if (label.includes("Replication Checker")) {
+            Zotero.debug(`[ReplicationChecker] Found richlistitem with Replication Checker label`);
+            const img = item.querySelector("image, img");
+            if (img) {
+              img.setAttribute("src", newIconPath);
+              Zotero.debug(`[ReplicationChecker] Updated richlistitem icon`);
+            }
+            if (item.hasAttribute("image")) {
+              item.setAttribute("image", newIconPath);
+              Zotero.debug(`[ReplicationChecker] Updated richlistitem image attribute`);
+            }
+          }
+        }
+
+        // Method 5: Look for any element with our plugin name in various attributes
+        // Then traverse up to find the parent container with the image
+        const allElements = doc.querySelectorAll(`[value*="Replication Checker"], [label*="Replication Checker"]`);
+        Zotero.debug(`[ReplicationChecker] Found ${allElements.length} elements with Replication Checker in value/label`);
+        for (const elem of allElements) {
+          Zotero.debug(`[ReplicationChecker] Found element: ${elem.tagName}#${(elem as Element).id}`);
+
+          // Traverse up to find parent container (richlistitem, button, etc.)
+          let parent = elem.parentElement;
+          let depth = 0;
+          while (parent && depth < 5) {
+            Zotero.debug(`[ReplicationChecker] Checking parent: ${parent.tagName}#${parent.id}`);
+
+            // Look for image element in this parent
+            const img = parent.querySelector("image, img");
+            if (img) {
+              Zotero.debug(`[ReplicationChecker] Found image in parent: ${img.tagName}, current src: ${img.getAttribute("src")}`);
+              img.setAttribute("src", newIconPath);
+              Zotero.debug(`[ReplicationChecker] Updated image src to: ${newIconPath}`);
+              break;
+            }
+
+            // Check if parent itself has image attribute
+            if (parent.hasAttribute("image")) {
+              Zotero.debug(`[ReplicationChecker] Parent has image attribute: ${parent.getAttribute("image")}`);
+              parent.setAttribute("image", newIconPath);
+              Zotero.debug(`[ReplicationChecker] Updated parent image attribute`);
+              break;
+            }
+
+            parent = parent.parentElement;
+            depth++;
+          }
+
+          // Also check if this element itself has image attribute
+          if ((elem as Element).hasAttribute("image")) {
+            (elem as Element).setAttribute("image", newIconPath);
+            Zotero.debug(`[ReplicationChecker] Updated element image attribute`);
+          }
+        }
+      }
+    }
+    Zotero.debug(`[ReplicationChecker] Checked ${windowCount} windows total`);
+  } catch (e) {
+    Zotero.debug(`[ReplicationChecker] Error updating preference pane icons: ${e}`);
   }
 }
 
@@ -430,6 +630,9 @@ function setupPreferencePaneObserver() {
             if (win.location?.href?.includes("preferences")) {
               Zotero.debug("[ReplicationChecker] Preferences window detected, waiting for DOM");
 
+              // Update preference pane icon immediately to match current theme
+              setTimeout(() => updatePreferencePaneIcons(), 100);
+
               // Poll for our preference pane to load (preference panes load asynchronously)
               let attempts = 0;
               const maxAttempts = 20; // Try for up to 10 seconds (20 * 500ms)
@@ -446,6 +649,8 @@ function setupPreferencePaneObserver() {
                   } else {
                     Zotero.debug("[ReplicationChecker] ERROR: initBlacklistUI not available");
                   }
+                  // Update preference pane icon to match current theme
+                  updatePreferencePaneIcons();
                 } else if (attempts < maxAttempts) {
                   Zotero.debug(`[ReplicationChecker] Preference pane not loaded yet, attempt ${attempts}/${maxAttempts}`);
                   setTimeout(checkForPane, 500);
@@ -473,6 +678,9 @@ export async function onShutdown() {
   Zotero.debug("[ReplicationChecker] Shutting down...");
 
   try {
+    // Cleanup theme observer
+    cleanupThemeObserver();
+
     // Cleanup plugin resources
     replicationChecker.shutdown();
 

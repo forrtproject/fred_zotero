@@ -61,14 +61,25 @@ jobs:
             cp addon/content/icons/favicon.png docs/assets/favicon.png
           fi
 
-          # Copy update.json from build for Zotero auto-updates
-          if [ -f ".scaffold/build/update.json" ]; then
+          # Download update.json from the latest GitHub release
+          # The release workflow creates update.json with the correct hash for the release XPI
+          echo "Fetching update.json from latest release..."
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/forrtproject/fred_zotero/releases/latest)
+          UPDATE_JSON_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "update.json") | .browser_download_url')
+
+          if [ -n "$UPDATE_JSON_URL" ] && [ "$UPDATE_JSON_URL" != "null" ]; then
+            echo "Downloading update.json from: $UPDATE_JSON_URL"
+            curl -L -o docs/update.json "$UPDATE_JSON_URL"
+            echo "✅ Downloaded update.json from latest release"
+            echo "Update.json contents:"
+            cat docs/update.json
+          elif [ -f ".scaffold/build/update.json" ]; then
+            echo "⚠️ No update.json in latest release, falling back to scaffold build"
             cp .scaffold/build/update.json docs/update.json
-            echo "✅ Copied update.json to docs/ for Zotero auto-updates"
             echo "Update.json contents:"
             cat docs/update.json
           else
-            echo "⚠️ Warning: update.json not found in build"
+            echo "⚠️ Warning: update.json not found"
           fi
 
       - name: Create _config.yml for Jekyll

@@ -1,7 +1,7 @@
 {
   "name": "zotero-replication-checker",
   "type": "module",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Privacy-preserving Zotero plugin for checking item replications in research",
   "config": {
     "addonName": "Replication Checker for Zotero",

@@ -66,20 +66,23 @@ jobs:
           echo "XPI contents (first 50 files):"
           unzip -l "$XPI_FILE" | head -55
 
-      - name: Rename XPI with version
+      - name: Prepare XPI for release
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          # The scaffold creates the XPI with the correct name based on addonName
+          # We use this name directly to match update.json
           XPI_SOURCE=$(ls .scaffold/build/*.xpi)
-          XPI_NAME="zotero-replication-checker-${VERSION}.xpi"
+          XPI_BASENAME=$(basename "$XPI_SOURCE")
 
-          cp "$XPI_SOURCE" "$XPI_NAME"
-          echo "XPI_NAME=$XPI_NAME" >> $GITHUB_ENV
-          echo "Created: $XPI_NAME"
+          cp "$XPI_SOURCE" "./$XPI_BASENAME"
+          echo "XPI_NAME=$XPI_BASENAME" >> $GITHUB_ENV
+          echo "XPI file: $XPI_BASENAME"
 
       - name: Create update.json
         run: |
           VERSION_NUM="${{ steps.version.outputs.VERSION_NUM }}"
           VERSION="${{ steps.version.outputs.VERSION }}"
+          # Use the same XPI filename that scaffold generates
+          XPI_NAME="${{ env.XPI_NAME }}"
 
           cat > update.json << EOF
           {
@@ -88,7 +91,7 @@ jobs:
                 "updates": [
                   {
                     "version": "$VERSION_NUM",
-                    "update_link": "https://github.com/forrtproject/fred_zotero/releases/download/${VERSION}/zotero-replication-checker-${VERSION}.xpi",
+                    "update_link": "https://github.com/forrtproject/fred_zotero/releases/download/${VERSION}/${XPI_NAME}",
                     "applications": {
                       "zotero": {
                         "strict_min_version": "7.0",
@@ -120,9 +123,9 @@ jobs:
 
             ---
 
-            ## 📥 **[⬇️ CLICK HERE TO DOWNLOAD](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi)**
+            ## 📥 **[⬇️ CLICK HERE TO DOWNLOAD](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/${{ env.XPI_NAME }})**
 
-            **Direct Download:** [`zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi`](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi)
+            **Direct Download:** [`${{ env.XPI_NAME }}`](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/${{ env.XPI_NAME }})
 
             ---
 
@@ -132,7 +135,7 @@ jobs:
 
             ### 📥 Installation
 
-            1. **Click the download link above** or download `zotero-replication-checker-${{ steps.version.outputs.VERSION }}.xpi` from Assets below
+            1. **Click the download link above** or download `${{ env.XPI_NAME }}` from Assets below
             2. In Zotero: **Tools → Add-ons** (or **Edit → Settings → Advanced → Settings Editor**)
             3. Click gear icon ⚙️ → **Install Add-on From File**
             4. Select the downloaded XPI file

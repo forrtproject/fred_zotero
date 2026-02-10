@@ -84,6 +84,10 @@ jobs:
           # Use the same XPI filename that scaffold generates
           XPI_NAME="${{ env.XPI_NAME }}"
 
+          # Compute SHA-512 hash of the XPI file for update verification
+          XPI_HASH=$(sha512sum "$XPI_NAME" | cut -d' ' -f1)
+          echo "XPI SHA-512 hash: $XPI_HASH"
+
           cat > update.json << EOF
           {
             "addons": {
@@ -92,6 +96,7 @@ jobs:
                   {
                     "version": "$VERSION_NUM",
                     "update_link": "https://github.com/forrtproject/fred_zotero/releases/download/${VERSION}/${XPI_NAME}",
+                    "update_hash": "sha512:${XPI_HASH}",
                     "applications": {
                       "zotero": {
                         "strict_min_version": "7.0",

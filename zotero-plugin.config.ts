@@ -7,11 +7,11 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  updateURL: `https://forrtproject.github.io/fred_zotero/${
+  updateURL: `https://forrtproject.github.io/flora_zotero/${
     pkg.version.includes("-") ? "update-beta.json" : "update.json"
   }`,
   xpiDownloadLink:
-    "https://github.com/forrtproject/fred_zotero/releases/download/v{{version}}/{{xpiName}}.xpi",
+    "https://github.com/forrtproject/flora_zotero/releases/download/v{{version}}/{{xpiName}}.xpi",
 
   build: {
     assets: ["addon/**/*.*"],

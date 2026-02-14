@@ -95,7 +95,7 @@ jobs:
                 "updates": [
                   {
                     "version": "$VERSION_NUM",
-                    "update_link": "https://github.com/forrtproject/fred_zotero/releases/download/${VERSION}/${XPI_NAME}",
+                    "update_link": "https://github.com/forrtproject/flora_zotero/releases/download/${VERSION}/${XPI_NAME}",
                     "update_hash": "sha512:${XPI_HASH}",
                     "applications": {
                       "zotero": {
@@ -128,9 +128,9 @@ jobs:
 
             ---
 
-            ## 📥 **[⬇️ CLICK HERE TO DOWNLOAD](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/${{ env.XPI_NAME }})**
+            ## 📥 **[⬇️ CLICK HERE TO DOWNLOAD](https://github.com/forrtproject/flora_zotero/releases/download/${{ steps.version.outputs.VERSION }}/${{ env.XPI_NAME }})**
 
-            **Direct Download:** [`${{ env.XPI_NAME }}`](https://github.com/forrtproject/fred_zotero/releases/download/${{ steps.version.outputs.VERSION }}/${{ env.XPI_NAME }})
+            **Direct Download:** [`${{ env.XPI_NAME }}`](https://github.com/forrtproject/flora_zotero/releases/download/${{ steps.version.outputs.VERSION }}/${{ env.XPI_NAME }})
 
             ---
 
@@ -181,7 +181,7 @@ jobs:
             If you encounter issues:
             1. **Help** → **Debug Output Logging** → **View Output**
             2. Look for messages starting with `[ReplicationChecker]:`
-            3. Report issues at: https://github.com/forrtproject/fred_zotero/issues
+            3. Report issues at: https://github.com/forrtproject/flora_zotero/issues
 
             ### 🙏 Credits
 

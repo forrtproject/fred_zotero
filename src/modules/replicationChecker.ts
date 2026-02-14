@@ -953,8 +953,29 @@ export class ReplicationCheckerPlugin {
 
       Zotero.debug(`[ReplicationChecker] Found ${originals.length} original(s) for replication ${doi}`);
 
+      // Show single confirmation prompt when there are multiple originals
+      if (originals.length > 1) {
+        const promptWin = this.getPromptWindow();
+        if (!promptWin) return;
+
+        const confirmed = Services.prompt.confirm(
+          promptWin,
+          getString("replication-checker-dialog-is-replication-title"),
+          getString("replication-checker-add-original-confirm", {
+            count: originals.length,
+          })
+        );
+
+        if (!confirmed) {
+          Zotero.debug(`[ReplicationChecker] User declined to add ${originals.length} original(s)`);
+          return;
+        }
+      }
+
       // Get Personal library ID
       const personalLibraryID = Zotero.Libraries.userLibraryID;
+
+      let addedCount = 0;
 
       // Process each original study
       for (const original of originals) {
@@ -1001,9 +1022,17 @@ export class ReplicationCheckerPlugin {
         // Create note on original showing ALL replications (not just this one)
         await this.createReplicationNoteForOriginal(originalItemID, original.doi);
 
-        // Show success message
+        addedCount++;
+      }
+
+      // Show single summary message
+      if (addedCount === 1) {
         this.showInfoAlert("replication-checker-add-original-success", {
-          title: original.title
+          title: originals[0].title,
+        });
+      } else if (addedCount > 1) {
+        this.showInfoAlert("replication-checker-add-original-batch-success", {
+          count: addedCount,
         });
       }
 

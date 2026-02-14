@@ -30,6 +30,8 @@ export type FluentMessageId =
   | 'pref-blacklist-hint'
   | 'pref-blacklist-remove'
   | 'pref-blacklist-title'
+  | 'replication-checker-add-original-batch-success'
+  | 'replication-checker-add-original-confirm'
   | 'replication-checker-add-original-success'
   | 'replication-checker-alert-no-collection'
   | 'replication-checker-alert-no-doi'

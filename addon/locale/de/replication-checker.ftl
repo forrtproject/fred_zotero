@@ -27,6 +27,8 @@ replication-checker-alert-no-collection = Bitte wählen Sie eine Sammlung aus, b
 replication-checker-alert-no-originals-available = Keine Originalstudien für diese Replikation verfügbar.
 replication-checker-alert-no-doi = Ausgewählter Eintrag hat keine DOI.
 replication-checker-add-original-success = Originalstudie erfolgreich hinzugefügt: { $title }
+replication-checker-add-original-confirm = { $count } Originalstudie(n) für diese Replikation gefunden. Möchten Sie alle zu Ihrer Bibliothek hinzufügen?
+replication-checker-add-original-batch-success = { $count } Originalstudie(n) erfolgreich zu Ihrer Bibliothek hinzugefügt.
 
 ## Ban Feature
 replication-checker-ban-title = Replikationen sperren

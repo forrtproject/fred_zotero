@@ -33,7 +33,7 @@ Then install the generated XPI file following the steps above.
 ### Project Structure
 
 ```
-fred_zotero/
+flora_zotero/
 ├── addon/                       # Compiled assets packaged into the XPI
 │   ├── bootstrap.js             # Bootstrap entry point
 │   ├── content/

@@ -19,7 +19,7 @@ The development was funded by UKRI as part of the [Making Replications Count](ht
 - ⚡ **Fast**: Efficient hash-based lookup with collision handling. 
 
 
-For more information on usage and functionality, head to [Documentation](https://github.com/forrtproject/fred_zotero/blob/main/README.md).
+For more information on usage and functionality, head to [Documentation](https://github.com/forrtproject/flora_zotero/blob/main/README.md).
 
 
 

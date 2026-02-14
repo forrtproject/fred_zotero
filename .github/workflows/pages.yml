@@ -64,7 +64,7 @@ jobs:
           # Download update.json from the latest GitHub release
           # The release workflow creates update.json with the correct hash for the release XPI
           echo "Fetching update.json from latest release..."
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/forrtproject/fred_zotero/releases/latest)
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/forrtproject/flora_zotero/releases/latest)
           UPDATE_JSON_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "update.json") | .browser_download_url')
 
           if [ -n "$UPDATE_JSON_URL" ] && [ "$UPDATE_JSON_URL" != "null" ]; then
@@ -99,7 +99,7 @@ jobs:
 
           # GitHub metadata
           github:
-            repository_url: https://github.com/forrtproject/fred_zotero
+            repository_url: https://github.com/forrtproject/flora_zotero
 
           # FORRT branding
           forrt:

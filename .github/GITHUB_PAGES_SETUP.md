@@ -9,7 +9,7 @@ You need to enable GitHub Pages in your repository settings **once**. After that
 ### Steps:
 
 1. **Go to Repository Settings**
-   - Navigate to https://github.com/forrtproject/fred_zotero/settings
+   - Navigate to https://github.com/forrtproject/flora_zotero/settings
 
 2. **Find Pages Section**
    - In the left sidebar, click **Pages**
@@ -27,9 +27,9 @@ You need to enable GitHub Pages in your repository settings **once**. After that
 
 The GitHub Pages workflow automatically publishes:
 
-- **Homepage**: `README.md` → https://forrtproject.github.io/fred_zotero/
-- **Release Guide**: `.github/RELEASE_GUIDE.md` → https://forrtproject.github.io/fred_zotero/release-guide
-- **Contributing** (if exists): `CONTRIBUTING.md` → https://forrtproject.github.io/fred_zotero/contributing
+- **Homepage**: `README.md` → https://forrtproject.github.io/flora_zotero/
+- **Release Guide**: `.github/RELEASE_GUIDE.md` → https://forrtproject.github.io/flora_zotero/release-guide
+- **Contributing** (if exists): `CONTRIBUTING.md` → https://forrtproject.github.io/flora_zotero/contributing
 
 ---
 
@@ -65,7 +65,7 @@ Edit `.github/workflows/pages.yml` and modify the CSS variables in the custom la
 
 ## 🔗 Where the Homepage URL Appears
 
-Once GitHub Pages is enabled, the homepage URL (`https://forrtproject.github.io/fred_zotero/`) will appear in:
+Once GitHub Pages is enabled, the homepage URL (`https://forrtproject.github.io/flora_zotero/`) will appear in:
 
 1. **Plugin Metadata**
    - When users view plugin details in Zotero
@@ -90,14 +90,14 @@ After enabling GitHub Pages:
    ```
 
 2. **Check Actions tab**
-   - Go to https://github.com/forrtproject/fred_zotero/actions
+   - Go to https://github.com/forrtproject/flora_zotero/actions
    - Look for "Deploy to GitHub Pages" workflow
 
 3. **Wait 1-2 minutes**
    - First deployment takes slightly longer
 
 4. **Visit the site**
-   - https://forrtproject.github.io/fred_zotero/
+   - https://forrtproject.github.io/flora_zotero/
 
 ---
 
@@ -141,7 +141,7 @@ To add new documentation pages:
    ```
 
 4. **Access at**
-   - https://forrtproject.github.io/fred_zotero/faq
+   - https://forrtproject.github.io/flora_zotero/faq
 
 ---
 
@@ -159,7 +159,7 @@ To add new documentation pages:
 **Fix:**
 - Wait 2-3 minutes after first deployment
 - Check workflow completed successfully
-- Verify URL: https://forrtproject.github.io/fred_zotero/
+- Verify URL: https://forrtproject.github.io/flora_zotero/
 
 ### Old Content Showing
 
@@ -175,7 +175,7 @@ To add new documentation pages:
 - [ ] Enable GitHub Pages (Settings → Pages → Source: GitHub Actions)
 - [ ] Push to main branch to trigger deployment
 - [ ] Wait 1-2 minutes
-- [ ] Visit https://forrtproject.github.io/fred_zotero/
+- [ ] Visit https://forrtproject.github.io/flora_zotero/
 - [ ] Check plugin metadata shows correct homepage
 - [ ] Done! ✅
 

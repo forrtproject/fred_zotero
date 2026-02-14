@@ -54,7 +54,7 @@ This guide explains how to create builds and releases for the Zotero Replication
    - Create GitHub release with both files
    - Generate release notes from commits
 
-**Result:** Release appears at `https://github.com/forrtproject/fred_zotero/releases`
+**Result:** Release appears at `https://github.com/forrtproject/flora_zotero/releases`
 
 ---
 

@@ -12,13 +12,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/forrtproject/fred_zotero.git"
+    "url": "git+https://github.com/forrtproject/flora_zotero.git"
   },
   "author": "FORRT Project",
   "bugs": {
-    "url": "https://github.com/forrtproject/fred_zotero/issues"
+    "url": "https://github.com/forrtproject/flora_zotero/issues"
   },
-  "homepage": "https://forrtproject.github.io/fred_zotero/",
+  "homepage": "https://forrtproject.github.io/flora_zotero/",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "start": "zotero-plugin serve",

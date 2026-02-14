@@ -606,7 +606,28 @@ function updatePreferencePaneIcons() {
 
 export async function onMainWindowUnload(win: Window) {
   Zotero.debug("[ReplicationChecker] Unloading main window");
-  // Cleanup is handled by shutdown
+
+  // Remove menu items from this window
+  try {
+    const menuIds = [
+      "replication-checker-tools-menu",
+      "replication-checker-help-guide",
+      "replication-checker-item-menu",
+      "replication-checker-ban-menu",
+      "replication-checker-add-original-menu",
+      "replication-checker-collection-menu",
+    ];
+
+    const doc = win.document;
+    for (const id of menuIds) {
+      const elem = doc.getElementById(id);
+      if (elem) {
+        elem.remove();
+      }
+    }
+  } catch (e) {
+    Zotero.debug("[ReplicationChecker] Error cleaning up window menu items: " + e);
+  }
 }
 
 /**
@@ -683,6 +704,34 @@ export async function onShutdown() {
 
     // Cleanup plugin resources
     replicationChecker.shutdown();
+
+    // Remove all registered menu items from the DOM to prevent duplicates on update
+    try {
+      const menuIds = [
+        "replication-checker-tools-menu",
+        "replication-checker-help-guide",
+        "replication-checker-item-menu",
+        "replication-checker-ban-menu",
+        "replication-checker-add-original-menu",
+        "replication-checker-collection-menu",
+      ];
+
+      const mainWindows = Zotero.getMainWindows();
+      for (const win of mainWindows) {
+        if (!win) continue;
+        const doc = win.document;
+        for (const id of menuIds) {
+          const elem = doc.getElementById(id);
+          if (elem) {
+            elem.remove();
+            Zotero.debug(`[ReplicationChecker] Removed menu element: ${id}`);
+          }
+        }
+      }
+      Zotero.debug("[ReplicationChecker] Menu items cleaned up");
+    } catch (e) {
+      Zotero.debug("[ReplicationChecker] Error cleaning up menu items: " + e);
+    }
 
     // Unregister preference observer
     try {

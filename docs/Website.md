@@ -31,4 +31,4 @@ For more information on usage and functionality, head to [Documentation](https:/
 
 ## Feedback
 
-Do you have feedback for us? Open an issue here if you encounter bugs or documentation issues. You can also [contact us anonymously about the Replication Checker](https://tinyurl.com/y5evebv9).
+Do you have feedback for us? Open an issue [here](https://github.com/forrtproject/flora_zotero/issues) if you encounter bugs or documentation issues. You can also [contact us anonymously about the Replication Checker](https://tinyurl.com/y5evebv9).

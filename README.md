@@ -171,7 +171,7 @@ Follows the same logic as described for replication but only "Has Reproduction" 
 
 If both a reproduction and replication are found, separate notes and tags are created for each.
 
-> **Note:** The note is automatically maintained by the plugin. Manual edits may be overwritten the next time the item is checked.
+> **Note:** This note is automatically generated. If you edit it, a new note will be created on the next check and this version will be kept as-is.  
 
 ### What Does Replication Outcome Mean?
 

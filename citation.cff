@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Zotero Replication Checker"
+version: "0.1.6"
+date-released: "2026"
+doi: 10.5281/zenodo.18671300
+url: "https://github.com/forrtproject/flora_zotero"
+repository-code: "https://github.com/forrtproject/flora_zotero"
+license: AGPL-3.0-or-later
+authors:
+  - family-names: Tondlekar
+    given-names: R.
+  - family-names: Wallrich
+    given-names: Lukas
+  - family-names: Weinerova
+    given-names: J.
+  - family-names: Fouilloux
+    given-names: A.
+  - family-names: Baldoni
+    given-names: C.
+  - family-names: Röseler
+    given-names: Lukas
+  - name: "FORRT"
+preferred-citation:
+  type: software
+  title: "Zotero Replication Checker"
+  version: "0.1.6"
+  year: 2026
+  doi: 10.5281/zenodo.18671300
+  url: "https://doi.org/10.5281/zenodo.18671300"
+  publisher:
+    name: Zenodo
+  authors:
+    - family-names: Tondlekar
+      given-names: R.
+    - family-names: Wallrich
+      given-names: Lukas
+    - family-names: Weinerova
+      given-names: J.
+    - family-names: Fouilloux
+      given-names: A.
+    - family-names: Baldoni
+      given-names: C.
+    - family-names: Röseler
+      given-names: Lukas
+    - name: "FORRT"

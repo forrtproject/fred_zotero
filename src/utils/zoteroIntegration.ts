@@ -208,3 +208,187 @@ export async function getItemDetails(
     year: item.getField("year") as string,
   };
 }
+
+/**
+ * Parsed BibTeX entry fields
+ */
+export interface ParsedBibtex {
+  entryType: string;      // e.g. "article", "misc", "inproceedings"
+  title?: string;
+  author?: string;
+  year?: string;
+  journal?: string;
+  volume?: string;
+  number?: string;        // BibTeX uses "number" for issue
+  pages?: string;
+  publisher?: string;
+  url?: string;
+  doi?: string;
+  booktitle?: string;
+  institution?: string;
+  howpublished?: string;
+  issn?: string;
+}
+
+/**
+ * Parse a BibTeX reference string into structured fields.
+ * This is a lightweight parser that handles the common BibTeX format
+ * returned by the FLoRA API.
+ * @param bibtex The BibTeX string to parse
+ * @returns Parsed fields, or null if parsing fails
+ */
+export function parseBibtex(bibtex: string | null | undefined): ParsedBibtex | null {
+  if (!bibtex || typeof bibtex !== "string") return null;
+
+  try {
+    // Extract entry type (e.g., @article, @misc, @inproceedings)
+    const typeMatch = bibtex.match(/@(\w+)\s*\{/);
+    if (!typeMatch) return null;
+
+    const result: ParsedBibtex = {
+      entryType: typeMatch[1].toLowerCase(),
+    };
+
+    // Extract fields using regex - handles both single-line and multiline values
+    // Match field = {value} or field = "value" patterns
+    const fieldRegex = /(\w+)\s*=\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g;
+    let match;
+
+    while ((match = fieldRegex.exec(bibtex)) !== null) {
+      const fieldName = match[1].toLowerCase().trim();
+      const fieldValue = match[2].trim();
+
+      switch (fieldName) {
+        case "title":
+          result.title = fieldValue;
+          break;
+        case "author":
+          result.author = fieldValue;
+          break;
+        case "year":
+          result.year = fieldValue;
+          break;
+        case "journal":
+          result.journal = fieldValue;
+          break;
+        case "volume":
+          result.volume = fieldValue;
+          break;
+        case "number":
+          result.number = fieldValue;
+          break;
+        case "pages":
+          result.pages = fieldValue;
+          break;
+        case "publisher":
+          result.publisher = fieldValue;
+          break;
+        case "url":
+          result.url = fieldValue;
+          break;
+        case "doi":
+          result.doi = fieldValue;
+          break;
+        case "booktitle":
+          result.booktitle = fieldValue;
+          break;
+        case "institution":
+          result.institution = fieldValue;
+          break;
+        case "howpublished":
+          result.howpublished = fieldValue;
+          break;
+        case "issn":
+          result.issn = fieldValue;
+          break;
+      }
+    }
+
+    return result;
+  } catch (error) {
+    Zotero.debug(`[parseBibtex] Failed to parse BibTeX: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Determine the best Zotero item type based on BibTeX entry type
+ * @param bibtexType The BibTeX entry type (e.g., "article", "misc")
+ * @returns The corresponding Zotero item type
+ */
+export function bibtexTypeToZoteroType(bibtexType: string): string {
+  const mapping: Record<string, string> = {
+    article: "journalArticle",
+    inproceedings: "conferencePaper",
+    proceedings: "conferencePaper",
+    incollection: "bookSection",
+    book: "book",
+    phdthesis: "thesis",
+    mastersthesis: "thesis",
+    techreport: "report",
+    manual: "document",
+    misc: "document",
+    unpublished: "manuscript",
+  };
+  return mapping[bibtexType.toLowerCase()] || "journalArticle";
+}
+
+/**
+ * Fill missing fields on a Zotero item using parsed BibTeX data.
+ * Only fills fields that are currently empty/null on the item.
+ * @param item The Zotero item to fill
+ * @param bibtexRef The raw BibTeX string from the API
+ * @returns true if any fields were updated
+ */
+export function fillMissingFieldsFromBibtex(item: Zotero.Item, bibtexRef: string | null | undefined): boolean {
+  const parsed = parseBibtex(bibtexRef);
+  if (!parsed) return false;
+
+  let updated = false;
+
+  const setIfEmpty = (field: string, value: string | undefined): boolean => {
+    if (!value) return false;
+    try {
+      const current = item.getField(field);
+      if (!current || String(current).trim() === "") {
+        item.setField(field, value);
+        updated = true;
+        return true;
+      }
+    } catch {
+      // Field may not be valid for this item type
+    }
+    return false;
+  };
+
+  // Fill publicationTitle from journal or booktitle (NOT publisher)
+  // - journalArticle uses "publicationTitle"
+  // - conferencePaper uses "conferenceName" or "publicationTitle"
+  // - bookSection uses "publicationTitle" (booktitle)
+  const publicationTitle = parsed.journal || parsed.booktitle;
+  if (publicationTitle) {
+    setIfEmpty("publicationTitle", publicationTitle);
+  }
+
+  // Fill publisher separately — this is always the actual publisher (e.g., "Springer")
+  // For item types that don't support publicationTitle (document, report, etc.),
+  // also try using journal/booktitle as publicationTitle fallback
+  if (parsed.publisher) {
+    setIfEmpty("publisher", parsed.publisher);
+  }
+  // For item types without publicationTitle (e.g., document/misc),
+  // use journal/booktitle as publisher if publisher wasn't set from BibTeX
+  if (!parsed.publisher && publicationTitle) {
+    setIfEmpty("publisher", publicationTitle);
+  }
+
+  setIfEmpty("volume", parsed.volume);
+  setIfEmpty("issue", parsed.number);
+  setIfEmpty("pages", parsed.pages);
+  setIfEmpty("url", parsed.url);
+  setIfEmpty("DOI", parsed.doi);
+  setIfEmpty("date", parsed.year);
+  setIfEmpty("ISSN", parsed.issn);
+
+  return updated;
+}

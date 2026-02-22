@@ -85,7 +85,7 @@ export const strings = {
 
   // Note Template
   "replication-checker-note-title": "Replications Found",
-  "replication-checker-note-warning": "This is an automatically generated note. Do not make changes!",
+  "replication-checker-note-warning": "This note is automatically generated. If you edit it, a new note will be created on the next check and this version will be kept as-is.",
   "replication-checker-note-intro": "This study has been replicated:",
   "replication-checker-note-feedback": "Did you find this result useful? Provide feedback <a href=\"{ $url }\" target=\"_blank\">here</a>!",
   "replication-checker-note-data-issues": "Did you find any issues in the data? Please report it <a href=\"{ $url }\" target=\"_blank\">here</a>!",
@@ -121,7 +121,7 @@ export const strings = {
 
   // Reproduction Notes
   "reproduction-checker-note-title": "Reproductions Found",
-  "reproduction-checker-note-warning": "This is an automatically generated note. Do not make changes!",
+  "reproduction-checker-note-warning": "This note is automatically generated. If you edit it, a new note will be created on the next check and this version will be kept as-is.",
   "reproduction-checker-note-intro": "This study has been reproduced:",
   "reproduction-checker-note-feedback": "Did you find this result useful? Provide feedback <a href=\"{ $url }\" target=\"_blank\">here</a>!",
   "reproduction-checker-note-data-issues": "Did you find any issues in the data? Please report it <a href=\"{ $url }\" target=\"_blank\">here</a>!",

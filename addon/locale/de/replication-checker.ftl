@@ -95,7 +95,7 @@ replication-checker-tag-in-flora = In FLoRA
 
 ## Note Template
 replication-checker-note-title = Replikationen gefunden
-replication-checker-note-warning = Dies ist eine automatisch generierte Notiz. Bitte keine Änderungen vornehmen!
+replication-checker-note-warning = Diese Notiz wird automatisch generiert. Wenn Sie sie bearbeiten, wird bei der nächsten Prüfung eine neue Notiz erstellt und diese Version bleibt unverändert erhalten.
 replication-checker-note-intro = Diese Studie wurde repliziert:
 replication-checker-note-feedback = War dieses Ergebnis hilfreich? Feedback geben <a href="{ $url }" target="_blank">hier</a>!
 replication-checker-note-data-issues = Haben Sie Probleme mit den Daten gefunden? Bitte melden Sie diese <a href="{ $url }" target="_blank">hier</a>!
@@ -199,7 +199,7 @@ reproduction-checker-tag-outcome-ci-not-checked = Reproduktion: Rechnerische Pro
 
 ## Reproduction Feature - Note Template
 reproduction-checker-note-title = Reproduktionen gefunden
-reproduction-checker-note-warning = Dies ist eine automatisch generierte Notiz. Bitte keine Änderungen vornehmen!
+reproduction-checker-note-warning = Diese Notiz wird automatisch generiert. Wenn Sie sie bearbeiten, wird bei der nächsten Prüfung eine neue Notiz erstellt und diese Version bleibt unverändert erhalten.
 reproduction-checker-note-intro = Diese Studie wurde reproduziert:
 reproduction-checker-note-feedback = War dieses Ergebnis hilfreich? Feedback geben <a href="{ $url }" target="_blank">hier</a>!
 reproduction-checker-note-data-issues = Haben Sie Probleme mit den Daten gefunden? Bitte melden Sie diese <a href="{ $url }" target="_blank">hier</a>!

@@ -1388,6 +1388,7 @@ export class ReplicationCheckerPlugin {
       pages_r: study.pages,
       outcome: study.outcome,
       url_r: study.url,
+      bibtex_ref: study.bibtex_ref,
     }));
   }
 
@@ -1450,17 +1451,20 @@ export class ReplicationCheckerPlugin {
       const item = await Zotero.Items.getAsync(itemID);
       if (!item) throw new Error(`Item ${itemID} not found`);
 
-      // Deduplicate replications by doi_r (or title if no DOI)
+      // Deduplicate replications by doi_r, url_r, or title
       const seen = new Set<string>();
       const uniqueReplications = replications.filter((rep: any) => {
-        const doi_r = (rep.doi_r || "").trim();
-        const dedupeKey = doi_r || (rep.title_r || "").trim();
-        if (dedupeKey && !seen.has(dedupeKey)) {
-          seen.add(dedupeKey);
+        const doi_r = (rep.doi_r || "").trim().toLowerCase();
+        const url_r = (rep.url_r || "").trim().toLowerCase();
+        const identifier = doi_r || url_r || (rep.title_r || "").trim().toLowerCase();
+        if (identifier && !seen.has(identifier)) {
+          seen.add(identifier);
+          // Also add the other identifier to prevent duplicates from different keys
+          if (doi_r && url_r) seen.add(url_r);
           return true;
         }
-        // Allow items with neither DOI nor title (edge case)
-        if (!dedupeKey) return true;
+        // Allow items with no identifiable key (edge case)
+        if (!identifier) return true;
         return false;
       });
 
@@ -1530,25 +1534,52 @@ export class ReplicationCheckerPlugin {
           return;
         }
 
-        // Extract existing DOIs
+        // Extract existing DOIs, URLs, and titles from the note
         const existingLis = Array.from(ul.querySelectorAll("li"));
-        const existingDOIs = new Set<string>();
+        const existingIdentifiers = new Set<string>();
+        const existingTitles = new Set<string>();
         existingLis.forEach((liElem: any) => {
           const doiA = liElem.querySelector('a[href^="https://doi.org/"]');
           if (doiA) {
-            const doi = (doiA as HTMLAnchorElement).href.replace("https://doi.org/", "").trim();
-            existingDOIs.add(doi);
+            const doi = (doiA as HTMLAnchorElement).href.replace("https://doi.org/", "").trim().toLowerCase();
+            if (doi && doi !== "n/a" && doi !== "na") {
+              existingIdentifiers.add(doi);
+            }
+          }
+          // Also check for URL links
+          const allLinks = liElem.querySelectorAll("a[href]");
+          allLinks.forEach((link: HTMLAnchorElement) => {
+            const href = link.href.trim().toLowerCase();
+            if (href && !href.startsWith("https://doi.org/")) {
+              existingIdentifiers.add(href);
+            }
+          });
+          // Extract title from <strong> as fallback identifier
+          const strongEl = liElem.querySelector("strong");
+          if (strongEl) {
+            const titleText = strongEl.textContent?.trim().toLowerCase();
+            if (titleText) {
+              existingTitles.add(titleText);
+            }
           }
         });
 
-        // Append new replications
+        // Append new replications (check DOI, URL, and title for uniqueness)
         let added = false;
         uniqueReplications.forEach((rep: any) => {
-          const doi_r = (rep.doi_r || "").trim();
-          if (doi_r && !existingDOIs.has(doi_r)) {
+          const doi_r = (rep.doi_r || "").trim().toLowerCase();
+          const url_r = (rep.url_r || "").trim().toLowerCase();
+          const title_r = (rep.title_r || "").trim().toLowerCase();
+          const doiExists = doi_r && doi_r !== "na" && doi_r !== "n/a" && existingIdentifiers.has(doi_r);
+          const urlExists = url_r && existingIdentifiers.has(url_r);
+          const titleExists = title_r && existingTitles.has(title_r);
+
+          if (!doiExists && !urlExists && !titleExists) {
             const newLiHTML = this.createReplicationLi(rep);
             ul.insertAdjacentHTML("beforeend", newLiHTML);
-            existingDOIs.add(doi_r);
+            if (doi_r && doi_r !== "na" && doi_r !== "n/a") existingIdentifiers.add(doi_r);
+            if (url_r) existingIdentifiers.add(url_r);
+            if (title_r) existingTitles.add(title_r);
             added = true;
           }
         });
@@ -1581,25 +1612,28 @@ export class ReplicationCheckerPlugin {
       const item = await Zotero.Items.getAsync(itemID);
       if (!item) throw new Error(`Item ${itemID} not found`);
 
-      // Deduplicate by DOI (or title if no DOI)
+      // Deduplicate by DOI, URL, or title
       const seen = new Set<string>();
       const uniqueReplications = replications.filter((rep: any) => {
-        const doi_r = (rep.doi_r || "").trim();
-        const dedupeKey = doi_r || (rep.title_r || "").trim();
-        if (dedupeKey && !seen.has(dedupeKey)) {
-          seen.add(dedupeKey);
+        const doi_r = (rep.doi_r || "").trim().toLowerCase();
+        const url_r = (rep.url_r || "").trim().toLowerCase();
+        const identifier = doi_r || url_r || (rep.title_r || "").trim().toLowerCase();
+        if (identifier && !seen.has(identifier)) {
+          seen.add(identifier);
+          if (doi_r && url_r) seen.add(url_r);
           return true;
         }
-        if (!dedupeKey) return true;
+        if (!identifier) return true;
         return false;
       });
 
       // Filter out blacklisted replications
       const nonBlacklistedReplications = uniqueReplications.filter((rep: any) => {
         const doi_r = (rep.doi_r || "").trim();
-        if (!doi_r) return true;
+        const url_r = (rep.url_r || "").trim();
+        if (!doi_r && !url_r) return true;
 
-        if (blacklistManager.isBlacklisted(doi_r)) {
+        if (blacklistManager.isBlacklisted(doi_r, url_r)) {
           Zotero.debug(
             `ReplicationChecker: Skipping blacklisted replication: ${doi_r} (${rep.title_r})`
           );
@@ -1636,8 +1670,7 @@ export class ReplicationCheckerPlugin {
         for (const rep of nonBlacklistedReplications) {
           const doi_r = (rep.doi_r || "").trim();
 
-          // Check for duplicate items with the same DOI already in the library
-          // Only do DOI-based dedup if there is a valid DOI
+          // Check for duplicate items with the same DOI, URL, or title already in the library
           let existingIDs: number[] = [];
           if (doi_r && doi_r.startsWith("10.")) {
             const search = new Zotero.Search({ libraryID });
@@ -1645,12 +1678,29 @@ export class ReplicationCheckerPlugin {
             existingIDs = await search.search();
           }
 
+          // If not found by DOI, try to find by URL field
+          const url_r = (rep.url_r || "").trim();
+          if (existingIDs.length === 0 && url_r) {
+            const urlSearch = new Zotero.Search({ libraryID });
+            urlSearch.addCondition("url", "is", url_r);
+            existingIDs = await urlSearch.search();
+          }
+
+          // If still not found, try matching by exact title + "Is Replication" tag
+          // This catches items where URL might have been stored differently
+          if (existingIDs.length === 0 && rep.title_r) {
+            const titleSearch = new Zotero.Search({ libraryID });
+            titleSearch.addCondition("title", "is", rep.title_r);
+            titleSearch.addCondition("tag", "is", TAG_IS_REPLICATION);
+            existingIDs = await titleSearch.search();
+          }
+
           // If the replication item already exists in the library, don't create a duplicate.
           // Instead, (a) make sure it's in the "Replication folder" collection and
           // (b) link it as a related item to the original.
           if (existingIDs.length > 0) {
             Zotero.debug(
-              `Found existing replication item(s) with DOI ${doi_r}; linking instead of creating duplicate`
+              `Found existing replication item(s) with identifier ${doi_r || url_r || rep.title_r}; linking instead of creating duplicate`
             );
 
             for (const existingID of existingIDs) {
@@ -1718,14 +1768,16 @@ export class ReplicationCheckerPlugin {
           }
 
           try {
+            // Determine item type from BibTeX if available
+            const parsedBibtex = ZoteroIntegration.parseBibtex(rep.bibtex_ref);
+            const itemType = parsedBibtex
+              ? ZoteroIntegration.bibtexTypeToZoteroType(parsedBibtex.entryType)
+              : "journalArticle";
+
             // Create new item
-            const newItem = new Zotero.Item("journalArticle");
+            const newItem = new Zotero.Item(itemType as any);
             (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
             newItem.setField("title", rep.title_r || "Untitled Replication");
-            newItem.setField("publicationTitle", rep.journal_r || "");
-            newItem.setField("volume", rep.volume_r || "");
-            newItem.setField("issue", rep.issue_r || "");
-            newItem.setField("pages", rep.pages_r || "");
             newItem.setField("date", rep.year_r ? rep.year_r.toString() : "");
             if (doi_r) {
               newItem.setField("DOI", doi_r);
@@ -1733,6 +1785,19 @@ export class ReplicationCheckerPlugin {
             if (rep.url_r) {
               newItem.setField("url", rep.url_r);
             }
+
+            // Safely set fields that may not exist for all item types (e.g. "document")
+            const safeSetField = (field: string, value: any) => {
+              if (!value) return;
+              try { newItem.setField(field, value); } catch { /* field not valid for this item type */ }
+            };
+            safeSetField("publicationTitle", rep.journal_r);
+            safeSetField("volume", rep.volume_r);
+            safeSetField("issue", rep.issue_r);
+            safeSetField("pages", rep.pages_r);
+
+            // Fill any missing fields from BibTeX reference
+            ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, rep.bibtex_ref);
 
             const newItemID = (await newItem.save()) as number;
             Zotero.debug(`Added new replication item with ID ${newItemID}${doi_r ? ` for DOI ${doi_r}` : ` (no DOI, title: ${rep.title_r})`}`);
@@ -1852,20 +1917,19 @@ export class ReplicationCheckerPlugin {
     li += `<strong>${this.escapeHtml(title)}</strong><br>`;
     li += `${this.parseAuthors(rep.author_r)} (${this.escapeHtml(year)})<br>`;
     li += `<em>${this.escapeHtml(journal)}</em><br>`;
-    li += `${doiLabel} <a href="https://doi.org/${this.escapeHtml(doiValue)}">${this.escapeHtml(doiValue)}</a><br>`;
+
+    // Only render DOI link when a real DOI is present (starts with "10.")
+    if (doiValue && doiValue.startsWith("10.")) {
+      li += `${doiLabel} <a href="https://doi.org/${this.escapeHtml(doiValue)}">${this.escapeHtml(doiValue)}</a><br>`;
+    }
 
     if (rep.outcome) {
       li += `${outcomeLabel} <strong>${this.escapeHtml(rep.outcome)}</strong><br>`;
     }
 
+    // Show URL link independently of DOI (matches reproduction handler behavior)
     const link = typeof rep.url_r === "string" ? rep.url_r.trim() : "";
-    if (
-      rep.doi_r &&
-      rep.doi_r.trim().toLowerCase() !== "na" &&
-      link &&
-      link.toLowerCase() !== "na" &&
-      link.startsWith("https")
-    ) {
+    if (link && link.toLowerCase() !== "na" && link.startsWith("http")) {
       li += `${linkLabel} <a href="${this.escapeHtml(link)}" target="_blank">${this.escapeHtml(link)}</a><br>`;
     }
 
@@ -2014,19 +2078,34 @@ export class ReplicationCheckerPlugin {
    * @returns The new item ID
    */
   private async createItemFromRelatedStudy(study: RelatedStudy, libraryID: number): Promise<number> {
-    const newItem = new Zotero.Item("journalArticle");
+    // Determine item type from BibTeX if available
+    const parsedBibtex = ZoteroIntegration.parseBibtex(study.bibtex_ref);
+    const itemType = parsedBibtex
+      ? ZoteroIntegration.bibtexTypeToZoteroType(parsedBibtex.entryType)
+      : "journalArticle";
+
+    const newItem = new Zotero.Item(itemType as any);
     (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
 
     newItem.setField("title", study.title || "Untitled");
-    newItem.setField("publicationTitle", study.journal || "");
-    newItem.setField("volume", study.volume || "");
-    newItem.setField("issue", study.issue || "");
-    newItem.setField("pages", study.pages || "");
     newItem.setField("date", study.year?.toString() || "");
     newItem.setField("DOI", study.doi || "");
+
+    // Safely set fields that may not exist for all item types
+    const safeSetField = (field: string, value: any) => {
+      if (!value) return;
+      try { newItem.setField(field, value); } catch { /* field not valid for this item type */ }
+    };
+    safeSetField("publicationTitle", study.journal);
+    safeSetField("volume", study.volume);
+    safeSetField("issue", study.issue);
+    safeSetField("pages", study.pages);
     if (study.abstract) {
-      newItem.setField("abstractNote", study.abstract);
+      safeSetField("abstractNote", study.abstract);
     }
+
+    // Fill any missing fields from BibTeX reference
+    ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, study.bibtex_ref);
 
     const newItemID = await newItem.save() as number;
     Zotero.debug(`[ReplicationChecker] Created item ${newItemID} from RelatedStudy: ${study.doi}`);
@@ -2161,14 +2240,16 @@ export class ReplicationCheckerPlugin {
    * Create a replication item in a specified library
    */
   private async createReplicationItemInLibrary(replicationData: any, libraryID: number): Promise<number> {
-    const newItem = new Zotero.Item("journalArticle");
+    // Determine item type from BibTeX if available
+    const parsedBibtex = ZoteroIntegration.parseBibtex(replicationData.bibtex_ref);
+    const itemType = parsedBibtex
+      ? ZoteroIntegration.bibtexTypeToZoteroType(parsedBibtex.entryType)
+      : "journalArticle";
+
+    const newItem = new Zotero.Item(itemType as any);
     (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
 
     newItem.setField("title", replicationData.title_r || "Untitled Replication");
-    newItem.setField("publicationTitle", replicationData.journal_r || "");
-    newItem.setField("volume", replicationData.volume_r || "");
-    newItem.setField("issue", replicationData.issue_r || "");
-    newItem.setField("pages", replicationData.pages_r || "");
     newItem.setField("date", replicationData.year_r?.toString() || "");
     if (replicationData.doi_r) {
       newItem.setField("DOI", replicationData.doi_r);
@@ -2176,6 +2257,19 @@ export class ReplicationCheckerPlugin {
     if (replicationData.url_r) {
       newItem.setField("url", replicationData.url_r);
     }
+
+    // Safely set fields that may not exist for all item types (e.g. "document")
+    const safeSetField = (field: string, value: any) => {
+      if (!value) return;
+      try { newItem.setField(field, value); } catch { /* field not valid for this item type */ }
+    };
+    safeSetField("publicationTitle", replicationData.journal_r);
+    safeSetField("volume", replicationData.volume_r);
+    safeSetField("issue", replicationData.issue_r);
+    safeSetField("pages", replicationData.pages_r);
+
+    // Fill any missing fields from BibTeX reference
+    ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, replicationData.bibtex_ref);
 
     const newItemID = await newItem.save() as number;
 
@@ -2339,26 +2433,29 @@ export class ReplicationCheckerPlugin {
             // Add original to the read-only library collection (not to Replication folder)
             await originalsCollection.addItem(copiedOriginalID);
 
-            // Deduplicate replications by DOI (or title if no DOI)
+            // Deduplicate replications by DOI, URL, or title
             const seen = new Set<string>();
             const uniqueReplications = replications.filter((rep: any) => {
-              const doi_r = (rep.doi_r || "").trim();
-              const dedupeKey = doi_r || (rep.title_r || "").trim();
-              if (dedupeKey && !seen.has(dedupeKey)) {
-                seen.add(dedupeKey);
+              const doi_r = (rep.doi_r || "").trim().toLowerCase();
+              const url_r = (rep.url_r || "").trim().toLowerCase();
+              const identifier = doi_r || url_r || (rep.title_r || "").trim().toLowerCase();
+              if (identifier && !seen.has(identifier)) {
+                seen.add(identifier);
+                if (doi_r && url_r) seen.add(url_r);
                 return true;
               }
-              if (!dedupeKey) return true;
+              if (!identifier) return true;
               return false;
             });
 
             // Filter out blacklisted replications
             const nonBlacklistedReplications = uniqueReplications.filter((rep: any) => {
               const doi_r = (rep.doi_r || "").trim();
-              if (!doi_r) return true;
+              const url_r = (rep.url_r || "").trim();
+              if (!doi_r && !url_r) return true;
 
-              if (blacklistManager.isBlacklisted(doi_r)) {
-                Zotero.debug(`[ReplicationChecker] Skipping blacklisted replication: ${doi_r}`);
+              if (blacklistManager.isBlacklisted(doi_r, url_r)) {
+                Zotero.debug(`[ReplicationChecker] Skipping blacklisted replication: ${doi_r || url_r}`);
                 return false;
               }
               return true;
@@ -2373,12 +2470,28 @@ export class ReplicationCheckerPlugin {
             for (const rep of nonBlacklistedReplications) {
               const doi_r = (rep.doi_r || "").trim();
 
-              // Check if replication already exists in Personal library (only if DOI available)
+              // Check if replication already exists in Personal library by DOI or URL
               let existingRepIDs: number[] = [];
               if (doi_r && doi_r.startsWith("10.")) {
                 const search = new Zotero.Search({ libraryID: personalLibraryID });
                 search.addCondition("DOI", "is", doi_r);
                 existingRepIDs = await search.search();
+              }
+
+              // If not found by DOI, try URL
+              const url_r = (rep.url_r || "").trim();
+              if (existingRepIDs.length === 0 && url_r) {
+                const urlSearch = new Zotero.Search({ libraryID: personalLibraryID });
+                urlSearch.addCondition("url", "is", url_r);
+                existingRepIDs = await urlSearch.search();
+              }
+
+              // If still not found, try matching by exact title + tag
+              if (existingRepIDs.length === 0 && rep.title_r) {
+                const titleSearch = new Zotero.Search({ libraryID: personalLibraryID });
+                titleSearch.addCondition("title", "is", rep.title_r);
+                titleSearch.addCondition("tag", "is", TAG_IS_REPLICATION);
+                existingRepIDs = await titleSearch.search();
               }
 
               let replicationItemID: number;

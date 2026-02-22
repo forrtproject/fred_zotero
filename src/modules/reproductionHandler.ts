@@ -128,6 +128,7 @@ export class ReproductionHandler {
       outcome: study.outcome,
       outcome_quote: study.outcome_quote,
       url_rep: study.url,
+      bibtex_ref: study.bibtex_ref,
     }));
   }
 
@@ -343,11 +344,26 @@ export class ReproductionHandler {
             existingIDs = await doiSearch.search();
           }
 
-          // If not found by DOI, try to find by URL in Extra field
+          // If not found by DOI, try to find by URL field
           if (existingIDs.length === 0 && url_rep) {
             const urlSearch = new Zotero.Search({ libraryID });
-            urlSearch.addCondition("extra", "contains", url_rep);
+            urlSearch.addCondition("url", "is", url_rep);
             existingIDs = await urlSearch.search();
+          }
+
+          // Also try URL in Extra field as fallback
+          if (existingIDs.length === 0 && url_rep) {
+            const extraSearch = new Zotero.Search({ libraryID });
+            extraSearch.addCondition("extra", "contains", url_rep);
+            existingIDs = await extraSearch.search();
+          }
+
+          // If still not found, try matching by exact title + "Is Reproduction" tag
+          if (existingIDs.length === 0 && rep.title_rep) {
+            const titleSearch = new Zotero.Search({ libraryID });
+            titleSearch.addCondition("title", "is", rep.title_rep);
+            titleSearch.addCondition("tag", "is", TAG_IS_REPRODUCTION);
+            existingIDs = await titleSearch.search();
           }
 
           // If the reproduction item already exists in the library, don't create a duplicate
@@ -401,8 +417,14 @@ export class ReproductionHandler {
           }
 
           try {
-            // Create new item - use document type since many reproductions are OSF reports
-            const newItem = new Zotero.Item("document");
+            // Determine item type from BibTeX if available, default to document for reproductions
+            const parsedBibtex = ZoteroIntegration.parseBibtex(rep.bibtex_ref);
+            const itemType = parsedBibtex
+              ? ZoteroIntegration.bibtexTypeToZoteroType(parsedBibtex.entryType)
+              : "document";
+
+            // Create new item
+            const newItem = new Zotero.Item(itemType as any);
             (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
             newItem.setField("title", rep.title_rep || "Untitled Reproduction");
             newItem.setField("date", rep.year_rep ? rep.year_rep.toString() : "");
@@ -426,6 +448,9 @@ export class ReproductionHandler {
             if (extraInfo) {
               newItem.setField("extra", extraInfo.trim());
             }
+
+            // Fill any missing fields from BibTeX reference
+            ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, rep.bibtex_ref);
 
             const newItemID = (await newItem.save()) as number;
             Zotero.debug(`[ReproductionHandler] Added new reproduction item with ID ${newItemID}`);
@@ -824,10 +849,25 @@ export class ReproductionHandler {
                 search.addCondition("DOI", "is", doi_rep);
                 existingRepIDs = await search.search();
               }
+              // If not found by DOI, try URL field
               if (existingRepIDs.length === 0 && url_rep) {
-                const search = new Zotero.Search({ libraryID: personalLibraryID });
-                search.addCondition("extra", "contains", url_rep);
-                existingRepIDs = await search.search();
+                const urlSearch = new Zotero.Search({ libraryID: personalLibraryID });
+                urlSearch.addCondition("url", "is", url_rep);
+                existingRepIDs = await urlSearch.search();
+              }
+              // Also try URL in Extra field as fallback
+              if (existingRepIDs.length === 0 && url_rep) {
+                const extraSearch = new Zotero.Search({ libraryID: personalLibraryID });
+                extraSearch.addCondition("extra", "contains", url_rep);
+                existingRepIDs = await extraSearch.search();
+              }
+
+              // If still not found, try matching by exact title + tag
+              if (existingRepIDs.length === 0 && rep.title_rep) {
+                const titleSearch = new Zotero.Search({ libraryID: personalLibraryID });
+                titleSearch.addCondition("title", "is", rep.title_rep);
+                titleSearch.addCondition("tag", "is", TAG_IS_REPRODUCTION);
+                existingRepIDs = await titleSearch.search();
               }
 
               let reproductionItemID: number;
@@ -951,7 +991,13 @@ export class ReproductionHandler {
    * Create a reproduction item in a specified library
    */
   private async createReproductionItemInLibrary(reproductionData: any, libraryID: number): Promise<number> {
-    const newItem = new Zotero.Item("document");
+    // Determine item type from BibTeX if available, default to document for reproductions
+    const parsedBibtex = ZoteroIntegration.parseBibtex(reproductionData.bibtex_ref);
+    const itemType = parsedBibtex
+      ? ZoteroIntegration.bibtexTypeToZoteroType(parsedBibtex.entryType)
+      : "document";
+
+    const newItem = new Zotero.Item(itemType as any);
     (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
 
     newItem.setField("title", reproductionData.title_rep || "Untitled Reproduction");
@@ -972,6 +1018,9 @@ export class ReproductionHandler {
     if (extraInfo) {
       newItem.setField("extra", extraInfo.trim());
     }
+
+    // Fill any missing fields from BibTeX reference
+    ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, reproductionData.bibtex_ref);
 
     const newItemID = await newItem.save() as number;
 

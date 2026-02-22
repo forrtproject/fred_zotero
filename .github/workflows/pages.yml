@@ -65,7 +65,7 @@ jobs:
           # The release workflow creates update.json with the correct hash for the release XPI
           echo "Fetching update.json from latest release..."
           LATEST_RELEASE=$(curl -s https://api.github.com/repos/forrtproject/flora_zotero/releases/latest)
-          UPDATE_JSON_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "update.json") | .browser_download_url')
+          UPDATE_JSON_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[]? | select(.name == "update.json") | .browser_download_url' 2>/dev/null || echo "")
 
           if [ -n "$UPDATE_JSON_URL" ] && [ "$UPDATE_JSON_URL" != "null" ]; then
             echo "Downloading update.json from: $UPDATE_JSON_URL"

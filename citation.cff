@@ -10,15 +10,15 @@ repository-code: "https://github.com/forrtproject/flora_zotero"
 license: AGPL-3.0-or-later
 authors:
   - family-names: Tondlekar
-    given-names: R.
+    given-names: Rohan
   - family-names: Wallrich
     given-names: Lukas
   - family-names: Weinerova
-    given-names: J.
+    given-names: Josefina
   - family-names: Fouilloux
-    given-names: A.
+    given-names: Anne
   - family-names: Baldoni
-    given-names: C.
+    given-names: Cecilia
   - family-names: Röseler
     given-names: Lukas
   - name: "FORRT"
@@ -33,15 +33,15 @@ preferred-citation:
     name: Zenodo
   authors:
     - family-names: Tondlekar
-      given-names: R.
+      given-names: Rohan
     - family-names: Wallrich
       given-names: Lukas
     - family-names: Weinerova
-      given-names: J.
+      given-names: Josefina
     - family-names: Fouilloux
-      given-names: A.
+      given-names: Anne
     - family-names: Baldoni
-      given-names: C.
+      given-names: Cecilia
     - family-names: Röseler
       given-names: Lukas
     - name: "FORRT"

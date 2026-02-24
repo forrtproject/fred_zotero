@@ -91,7 +91,7 @@ jobs:
         run: |
           cat > docs/_config.yml << 'EOF'
           title: Zotero Replication Checker
-          description: Privacy-first plugin to discover replications from the FORRT Literature Database (FLoRA)
+          description: Privacy-first plugin to discover replications from the FORRT Library of Replication Attempts (FLoRA)
 
           # Navigation
           navigation:
@@ -554,8 +554,8 @@ jobs:
             <!-- Navigation -->
             <nav class="nav">
               <div class="nav-container">
-                <a href="{{ site.baseurl }}/" class="active">Home</a>
-                <a href="{{ site.baseurl }}/documentation">Documentation</a>
+                <a href="{{ site.baseurl }}/" {% if page.url == "/" or page.url == "/index.html" %}class="active"{% endif %}>Home</a>
+                <a href="{{ site.baseurl }}/documentation" {% if page.url contains "documentation" %}class="active"{% endif %}>Documentation</a>
                 <a href="{{ site.github.repository_url }}/releases">Download</a>
                 <a href="{{ site.github.repository_url }}/issues">Report Issue</a>
                 <a href="https://forrt.org/">FORRT Project</a>

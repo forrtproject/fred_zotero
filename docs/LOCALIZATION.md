@@ -15,6 +15,12 @@ Currently supported languages:
 
 - **English (en-US)**: `addon/locale/en-US/replication-checker.ftl` ✅
 - **German (de)**: `addon/locale/de/replication-checker.ftl` ✅
+- **French (fr)**: `addon/locale/fr/replication-checker.ftl` ✅
+- **Spanish (es)**: `addon/locale/es/replication-checker.ftl` ✅
+- **Portuguese - Brazil (pt-BR)**: `addon/locale/pt-BR/replication-checker.ftl` ✅
+- **Arabic (ar)**: `addon/locale/ar/replication-checker.ftl` ✅
+- **Chinese Simplified (zh-CN)**: `addon/locale/zh-CN/replication-checker.ftl` ✅
+- **Korean (ko)**: `addon/locale/ko/replication-checker.ftl` ✅
 
 ## Adding a New Language
 
@@ -29,13 +35,17 @@ addon/locale/{language-code}/
 ```
 
 **Common language codes:**
-- French: `fr`
-- Spanish: `es`
-- Portuguese: `pt-BR`
+- French: `fr` (Zotero may report `fr-FR` — the plugin tries both)
+- Spanish: `es` (Zotero may report `es-ES` — the plugin tries both)
+- Portuguese (Brazil): `pt-BR`
 - Italian: `it`
 - Chinese (Simplified): `zh-CN`
 - Japanese: `ja`
 - Russian: `ru`
+- Korean: `ko` (Zotero may report `ko-KR` — the plugin tries both)
+- Arabic: `ar`
+
+> **Note:** The plugin automatically tries both the full locale code (e.g. `fr-FR`) and the base language code (e.g. `fr`) before falling back to English. So you can name your folder with either format.
 
 ### Step 2: Copy the English Template
 

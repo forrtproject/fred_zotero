@@ -46,6 +46,11 @@ jobs:
           # Copy Website.md as index
           cp docs/Website.md docs/index.md
 
+          # Copy README.md as the Documentation page
+          if [ -f "README.md" ]; then
+            cp README.md docs/documentation.md
+          fi
+
           # Copy other documentation
           if [ -f "CONTRIBUTING.md" ]; then
             cp CONTRIBUTING.md docs/contributing.md
@@ -274,11 +279,9 @@ jobs:
               }
 
               .content {
-                background: white !important;
+                background: var(--background-cream) !important;
                 padding: 3.5rem;
                 border-radius: 8px;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-                border: 1px solid var(--border-color);
               }
 
               .content * {
@@ -310,7 +313,7 @@ jobs:
                 margin: 0 auto;
                 font-size: 16px;
                 line-height: 1.75;
-                background: white !important;
+                background: transparent !important;
                 color: var(--text-dark) !important;
               }
 
@@ -552,7 +555,7 @@ jobs:
             <nav class="nav">
               <div class="nav-container">
                 <a href="{{ site.baseurl }}/" class="active">Home</a>
-                <a href="{{ site.github.repository_url }}/blob/main/README.md">Documentation</a>
+                <a href="{{ site.baseurl }}/documentation">Documentation</a>
                 <a href="{{ site.github.repository_url }}/releases">Download</a>
                 <a href="{{ site.github.repository_url }}/issues">Report Issue</a>
                 <a href="https://forrt.org/">FORRT Project</a>
@@ -576,7 +579,7 @@ jobs:
                 <a href="{{ site.github.repository_url }}">GitHub</a>
                 <a href="{{ site.github.repository_url }}/releases">Releases</a>
                 <a href="{{ site.github.repository_url }}/issues">Issues</a>
-                <a href="https://forrt.org/replication-hub/">FLoRA Database</a>
+                <a href="">FLoRA Database</a>
               </p>
             </footer>
           </body>

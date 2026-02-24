@@ -32,8 +32,9 @@ async function loadFTLStrings(
 ): Promise<Record<string, string>> {
   const strings: Record<string, string> = {};
 
-  // Try locale-specific file first, then fall back to en-US
-  const localesToTry = [locale, "en-US"];
+  // Try locale-specific file first, then base language code (e.g. fr-FR -> fr), then fall back to en-US
+  const baseLocale = locale.split("-")[0];
+  const localesToTry = [...new Set([locale, baseLocale, "en-US"])];
 
   for (const loc of localesToTry) {
     // Locale files are registered at chrome://addonRef-locale/content/ in bootstrap.js

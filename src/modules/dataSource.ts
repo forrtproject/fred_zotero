@@ -3,6 +3,7 @@
  * Handles API communication for batch DOI queries with the FLoRA API format
  */
 
+import { config } from "../../package.json";
 import type { PrefixLookupRequest, PrefixLookupResponse, DOICheckResult } from "../types/replication";
 
 /**
@@ -41,7 +42,7 @@ export class APIDataSource extends ReplicationDataSource {
     try {
       let response;
       try {
-        const requestBody = { prefixes: prefixes } as PrefixLookupRequest;
+        const requestBody = { prefixes: prefixes, email: config.apiEmail } as PrefixLookupRequest;
         Zotero.debug(`[APIDataSource] Sending request with prefixes: ${JSON.stringify(requestBody)}`);
 
         response = await Zotero.HTTP.request("POST", this.apiUrl, {

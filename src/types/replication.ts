@@ -89,6 +89,7 @@ export interface PrefixLookupResponse {
  */
 export interface PrefixLookupRequest {
   prefixes: string[];
+  email?: string;
 }
 
 /**

@@ -8,7 +8,8 @@
     "addonID": "replication-checker@forrt.org",
     "addonRef": "replicationChecker",
     "addonInstance": "ReplicationChecker",
-    "prefsPrefix": "extensions.zotero.replication-checker"
+    "prefsPrefix": "extensions.zotero.replication-checker",
+    "apiEmail": "zotero@replications.forrt.org"
   },
   "repository": {
     "type": "git",

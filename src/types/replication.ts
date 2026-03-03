@@ -43,6 +43,7 @@ export interface RelatedStudy {
   outcome?: string;  // For replications: 'successful', 'failed', 'mixed', 'informational'
   abstract?: string | null;
   outcome_quote?: string | null;
+  outcome_quote_source?: string | null;
 }
 
 /**

@@ -2,7 +2,7 @@
 # Modern Fluent format (.ftl)
 
 ## Menu Items
-replication-checker-tools-menu = Verificar biblioteca atual para replicações
+replication-checker-tools-menu = Verificar replicações na biblioteca atual
 replication-checker-context-menu = Verificar replicações
 replication-checker-context-menu-ban = Banir replicação
 replication-checker-context-menu-add-original = Adicionar original
@@ -18,7 +18,7 @@ replication-checker-progress-no-dois = Nenhum item com DOI encontrado na coleç�
 replication-checker-progress-complete = Verificação concluída
 replication-checker-progress-failed = Verificação falhou
 replication-checker-progress-match-count = { $count } item(ns) com replicações encontrado(s)
-replication-checker-progress-copying-readonly = Copiando itens da biblioteca somente leitura para a biblioteca pessoal...
+replication-checker-progress-copying-readonly = Copiando itens da biblioteca (somente leitura) para a biblioteca pessoal...
 
 ## Alerts
 replication-checker-alert-title = Verificador de Replicações do Zotero
@@ -63,9 +63,9 @@ replication-checker-dialog-is-replication-title = Estudo Original Encontrado
 replication-checker-dialog-is-replication-message = Nenhuma replicação encontrada, mas este parece ser um estudo de replicação.\n\nDeseja adicionar o(s) artigo(s) original(is)?
 
 ## Read-Only Library Handling
-replication-checker-readonly-dialog-title = Biblioteca Somente Leitura Detectada
+replication-checker-readonly-dialog-title = Biblioteca detectada (somente leitura)
 replication-checker-readonly-dialog-message =
-    Esta biblioteca é somente leitura. Encontramos { $itemCount } item(ns) com { $replicationCount } replicação(ões).
+    Esta biblioteca tem acesso somente leitura. Encontramos { $itemCount } item(ns) com { $replicationCount } replicação(ões).
 
     Deseja copiar os artigos originais e suas replicações para a "pasta de replicações" da sua biblioteca pessoal?
 
@@ -88,7 +88,7 @@ replication-checker-tag-added-by-checker = Adicionado pelo Verificador de Replic
 replication-checker-tag-success = Replicação: Bem-sucedida
 replication-checker-tag-failure = Replicação: Falhou
 replication-checker-tag-mixed = Replicação: Mista
-replication-checker-tag-readonly-origin = Original presente em biblioteca somente leitura
+replication-checker-tag-readonly-origin = Original presente em biblioteca (somente leitura)
 replication-checker-tag-has-been-replicated = Foi Replicado
 replication-checker-tag-has-been-reproduced = Foi Reproduzido
 replication-checker-tag-in-flora = Em FLoRA
@@ -132,10 +132,10 @@ onboarding-welcome-content =
     ✨ Recursos principais:
     • Verificação automática de DOIs no banco de dados de replicações
     • Funciona com toda a biblioteca, coleções ou itens individuais
-    • Cria notas vinculadas com informações de replicação
+    • Cria notas vinculadas a informações de replicação
     • Marca itens com status de replicação
     • Adiciona estudos originais quando você tem replicações
-    • Bane replicações indesejadas de verificações futuras
+    • Bane replicações indesejadas em verificações futuras
 
     Vamos fazer um tour rápido para começar!
 
@@ -187,7 +187,7 @@ reproduction-checker-context-menu-ban = Banir reprodução
 reproduction-checker-tag = Tem Reprodução
 reproduction-checker-tag-is-reproduction = É uma Reprodução
 reproduction-checker-tag-added-by-checker = Adicionado pelo Verificador de Replicações
-reproduction-checker-tag-readonly-origin = Original presente em biblioteca somente leitura
+reproduction-checker-tag-readonly-origin = Original presente em biblioteca (somente leitura)
 
 ## Reproduction Feature - Outcome Tags
 reproduction-checker-tag-outcome-cs-robust = Reprodução: Computacionalmente bem-sucedida, Robusta
@@ -238,7 +238,7 @@ reproduction-checker-progress-reproductions-found = { $count } item(ns) com repr
 
 ## Preference Pane
 pref-autocheck-title = Verificação Automática da Biblioteca para Replicações
-pref-autocheck-description = Verificar automaticamente sua biblioteca para estudos de replicação em intervalos regulares
+pref-autocheck-description = Verificar automaticamente estudos de replicação em sua biblioteca em intervalos regulares
 pref-autocheck-disabled = Desativado (somente verificação manual)
 pref-autocheck-daily = Diário (verificar a cada 24 horas)
 pref-autocheck-weekly = Semanal (verificar a cada 7 dias)
@@ -247,7 +247,7 @@ pref-autocheck-new-items = Verificar automaticamente novos itens adicionados à 
 pref-autocheck-new-items-hint = Desative esta opção se preferir executar todas as verificações de replicação manualmente.
 pref-autocheck-note = A verificação automática é executada em segundo plano quando o Zotero está aberto. Você ainda pode verificar manualmente pelo menu Ferramentas.
 pref-blacklist-title = Replicações Banidas
-pref-blacklist-description = Gerenciar replicações que você baniu de aparecer na sua biblioteca
+pref-blacklist-description = Gerenciar a exibição de replicações banidas na sua biblioteca
 pref-blacklist-col-replication = Artigo de Replicação
 pref-blacklist-col-original = Artigo Original
 pref-blacklist-col-type = Tipo

@@ -2,7 +2,7 @@
 # Modern Fluent format (.ftl)
 
 ## Menu Items
-replication-checker-tools-menu = Verificar biblioteca actual para replicaciones
+replication-checker-tools-menu = Verificar replicaciones en la biblioteca actual
 replication-checker-context-menu = Verificar replicaciones
 replication-checker-context-menu-ban = Bloquear replicación
 replication-checker-context-menu-add-original = Añadir original
@@ -141,7 +141,7 @@ onboarding-welcome-content =
 
 onboarding-tools-title = Verificar toda su biblioteca
 onboarding-tools-content =
-    📍 Ubicación: Herramientas → Verificar biblioteca actual para replicaciones
+    📍 Ubicación: Herramientas → Verificar replicaciones en la biblioteca actual
 
     🔍 Qué hace:
     • Analiza todos los elementos con DOI
@@ -229,7 +229,7 @@ reproduction-checker-dialog-intro = Estudios de reproducción encontrados para:\
 reproduction-checker-dialog-count = Se encontraron { $count } reproducción(es):
 reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   Resultado: { $outcome }
 reproduction-checker-dialog-more = ...y { $count } reproducción(es) más
-reproduction-checker-dialog-question = ¿Desea añadir información de reproducción?
+reproduction-checker-dialog-question = ¿Desea añadir información en el/los estudio/s de reproducción encontrados?
 reproduction-checker-dialog-progress-title = Información de reproducción añadida
 reproduction-checker-dialog-progress-line = Información de reproducción añadida a "{ $title }"
 
@@ -238,7 +238,7 @@ reproduction-checker-progress-reproductions-found = Se encontraron { $count } el
 
 ## Preference Pane
 pref-autocheck-title = Verificación automática de biblioteca para replicaciones
-pref-autocheck-description = Verificar automáticamente su biblioteca para estudios de replicación a intervalos regulares
+pref-autocheck-description = Verificar automáticamente su biblioteca para estudios de replicación en intervalos regulares
 pref-autocheck-disabled = Desactivado (solo verificación manual)
 pref-autocheck-daily = Diario (verificar cada 24 horas)
 pref-autocheck-weekly = Semanal (verificar cada 7 días)

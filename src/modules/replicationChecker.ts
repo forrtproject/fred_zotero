@@ -1387,6 +1387,8 @@ export class ReplicationCheckerPlugin {
       issue_r: study.issue,
       pages_r: study.pages,
       outcome: study.outcome,
+      outcome_quote: study.outcome_quote,
+      outcome_quote_source: study.outcome_quote_source,
       url_r: study.url,
       bibtex_ref: study.bibtex_ref,
     }));
@@ -1796,6 +1798,18 @@ export class ReplicationCheckerPlugin {
             safeSetField("issue", rep.issue_r);
             safeSetField("pages", rep.pages_r);
 
+            // Add extra field with outcome info
+            let extraInfo = "";
+            if (rep.outcome) {
+              extraInfo += `Replication Outcome: ${rep.outcome}\n`;
+            }
+            if (rep.outcome_quote && rep.outcome_quote_source === "abstract") {
+              extraInfo += `Outcome Quote: ${rep.outcome_quote}\n`;
+            }
+            if (extraInfo) {
+              newItem.setField("extra", extraInfo.trim());
+            }
+
             // Fill any missing fields from BibTeX reference
             ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, rep.bibtex_ref);
 
@@ -1925,6 +1939,10 @@ export class ReplicationCheckerPlugin {
 
     if (rep.outcome) {
       li += `${outcomeLabel} <strong>${this.escapeHtml(rep.outcome)}</strong><br>`;
+    }
+
+    if (rep.outcome_quote && rep.outcome_quote_source === "abstract") {
+      li += `<em>"${this.escapeHtml(rep.outcome_quote)}"</em><br>`;
     }
 
     // Show URL link independently of DOI (matches reproduction handler behavior)
@@ -2159,6 +2177,8 @@ export class ReplicationCheckerPlugin {
         issue_r: rep.issue,
         pages_r: rep.pages,
         outcome: rep.outcome,
+        outcome_quote: rep.outcome_quote,
+        outcome_quote_source: rep.outcome_quote_source,
         url_r: rep.url,
       }));
 
@@ -2267,6 +2287,18 @@ export class ReplicationCheckerPlugin {
     safeSetField("volume", replicationData.volume_r);
     safeSetField("issue", replicationData.issue_r);
     safeSetField("pages", replicationData.pages_r);
+
+    // Add extra field with outcome info
+    let extraInfo = "";
+    if (replicationData.outcome) {
+      extraInfo += `Replication Outcome: ${replicationData.outcome}\n`;
+    }
+    if (replicationData.outcome_quote && replicationData.outcome_quote_source === "abstract") {
+      extraInfo += `Outcome Quote: ${replicationData.outcome_quote}\n`;
+    }
+    if (extraInfo) {
+      newItem.setField("extra", extraInfo.trim());
+    }
 
     // Fill any missing fields from BibTeX reference
     ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, replicationData.bibtex_ref);

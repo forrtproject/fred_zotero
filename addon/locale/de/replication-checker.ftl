@@ -8,21 +8,21 @@ replication-checker-context-menu-ban = Replikation sperren
 replication-checker-context-menu-add-original = Original hinzufügen
 
 ## Progress Messages
-replication-checker-progress-checking-library = Prüfung auf Replikationen
+replication-checker-progress-checking-library = Prüfung auf Replikationen läuft
 replication-checker-progress-checking-collection = Prüfung auf Replikationen in Sammlung
 replication-checker-progress-scanning-library = Bibliothek wird durchsucht...
 replication-checker-progress-scanning-collection = Sammlung wird durchsucht...
-replication-checker-progress-found-dois = { $itemCount } Einträge mit DOIs gefunden ({ $uniqueCount } eindeutig)
+replication-checker-progress-found-dois = { $itemCount } Einträge mit DOIs gefunden ({ $uniqueCount } einzigartig)
 replication-checker-progress-checking-database = Abfrage der Replikationsdatenbank...
 replication-checker-progress-no-dois = Keine Einträge mit DOIs in der Sammlung gefunden
 replication-checker-progress-complete = Prüfung abgeschlossen
 replication-checker-progress-failed = Prüfung fehlgeschlagen
 replication-checker-progress-match-count = { $count } Eintrag/Einträge mit Replikationen gefunden
-replication-checker-progress-copying-readonly = Einträge aus schreibgeschützter Bibliothek in persönliche Bibliothek kopieren...
+replication-checker-progress-copying-readonly = Kopiere Einträge aus schreibgeschützter Bibliothek in persönliche Bibliothek...
 
 ## Alerts
 replication-checker-alert-title = Zotero Replikationsprüfer
-replication-checker-alert-no-dois-selected = Keine DOIs in ausgewählten Einträgen gefunden.
+replication-checker-alert-no-dois-selected = Keine DOIs in den ausgewählten Einträgen gefunden.
 replication-checker-alert-no-collection = Bitte wählen Sie eine Sammlung aus, bevor Sie diese Prüfung ausführen.
 replication-checker-alert-no-originals-available = Keine Originalstudien für diese Replikation verfügbar.
 replication-checker-alert-no-doi = Ausgewählter Eintrag hat keine DOI.
@@ -60,7 +60,7 @@ replication-checker-dialog-question = Möchten Sie Replikationsinformationen hin
 replication-checker-dialog-progress-title = Replikationsinformationen hinzugefügt
 replication-checker-dialog-progress-line = Replikationsinformationen zu "{ $title }" hinzugefügt
 replication-checker-dialog-is-replication-title = Originalstudie gefunden
-replication-checker-dialog-is-replication-message = Keine Replikationen gefunden, aber dies scheint eine Replikationsstudie zu sein.\n\nMöchten Sie die Originalartikel hinzufügen?
+replication-checker-dialog-is-replication-message = Keine Replikationen gefunden, aber dies scheint eine Replikationsstudie zu sein.\n\nMöchten Sie den/die Originalartikel hinzufügen?
 
 ## Read-Only Library Handling
 replication-checker-readonly-dialog-title = Schreibgeschützte Bibliothek erkannt
@@ -97,7 +97,7 @@ replication-checker-tag-in-flora = In FLoRA
 replication-checker-note-title = Replikationen gefunden
 replication-checker-note-warning = Diese Notiz wird automatisch generiert. Wenn Sie sie bearbeiten, wird bei der nächsten Prüfung eine neue Notiz erstellt und diese Version bleibt unverändert erhalten.
 replication-checker-note-intro = Diese Studie wurde repliziert:
-replication-checker-note-feedback = War dieses Ergebnis hilfreich? Feedback geben <a href="{ $url }" target="_blank">hier</a>!
+replication-checker-note-feedback = War dieses Ergebnis hilfreich? Geben Sie <a href=“{ $url }” target=“_blank”>hier</a> Feedback!
 replication-checker-note-data-issues = Haben Sie Probleme mit den Daten gefunden? Bitte melden Sie diese <a href="{ $url }" target="_blank">hier</a>!
 replication-checker-note-footer = Erstellt von Zotero Replikationsprüfer unter Verwendung der FORRT Literaturdatenbank (FLoRA)
 
@@ -201,7 +201,7 @@ reproduction-checker-tag-outcome-ci-not-checked = Reproduktion: Rechnerische Pro
 reproduction-checker-note-title = Reproduktionen gefunden
 reproduction-checker-note-warning = Diese Notiz wird automatisch generiert. Wenn Sie sie bearbeiten, wird bei der nächsten Prüfung eine neue Notiz erstellt und diese Version bleibt unverändert erhalten.
 reproduction-checker-note-intro = Diese Studie wurde reproduziert:
-reproduction-checker-note-feedback = War dieses Ergebnis hilfreich? Feedback geben <a href="{ $url }" target="_blank">hier</a>!
+reproduction-checker-note-feedback = War dieses Ergebnis hilfreich? Geben Sie <a href=“{ $url }” target=“_blank”>hier</a> Feedback!
 reproduction-checker-note-data-issues = Haben Sie Probleme mit den Daten gefunden? Bitte melden Sie diese <a href="{ $url }" target="_blank">hier</a>!
 reproduction-checker-note-footer = Erstellt von Zotero Replikationsprüfer unter Verwendung der FORRT Literaturdatenbank (FLoRA)
 
@@ -247,7 +247,7 @@ pref-autocheck-new-items = Neu hinzugefügte Bibliothekseinträge automatisch pr
 pref-autocheck-new-items-hint = Deaktivieren Sie diese Option, wenn Sie alle Replikationsprüfungen manuell durchführen möchten.
 pref-autocheck-note = Die automatische Prüfung läuft im Hintergrund, wenn Zotero geöffnet ist. Sie können weiterhin manuell über das Menü Werkzeuge prüfen.
 pref-blacklist-title = Gesperrte Replikationen
-pref-blacklist-description = Verwalten Sie Replikationen, die Sie vom Erscheinen in Ihrer Bibliothek gesperrt haben
+pref-blacklist-description = Verwalten Sie Replikationen, die Sie aus Ihrer Bibliothek ausgeschlossen haben.
 pref-blacklist-col-replication = Replikationsartikel
 pref-blacklist-col-original = Originalartikel
 pref-blacklist-col-type = Typ

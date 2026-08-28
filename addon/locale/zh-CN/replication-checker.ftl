@@ -214,7 +214,7 @@ onboarding-welcome-content =
     • 自动为条目添加标签（如"有重复研究"、"是重复研究"）
     • 检测到重复研究时提供添加原始研究的选项
     • 支持只读群组文献库——将条目复制到个人文献库
-    • 可配置重复研究和再现研究的文件夹名称
+    • 所有集合均置于单个“FLoRA”集合内，名称可配置
     • 屏蔽不需要的重复研究，使其不再出现
 
     让我们快速浏览以便您快速上手！
@@ -243,10 +243,34 @@ onboarding-context-content =
     右键单击重复研究条目 → 屏蔽重复研究
     • 防止不需要的重复研究被重新添加
 
+    🗂️ 内容存放位置：
+    插件创建的所有内容都位于单个“FLoRA”集合内
+    • FLoRA Replications、FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ 首选项：
     编辑 → 设置 → Replication Checker
     • 自动检查频率
     • 自动检查新条目
+    • 集合名称，包括“FLoRA”容器
+    • 各文献库的 FLoRA 统计，并附 Replication Atlas 链接
+
+onboarding-stats-title = 您的 FLoRA 统计
+onboarding-stats-content =
+    📍 位置：编辑 → 设置 → Replication Checker
+
+    📊 FLoRA 对您文献库的实时统计：
+    • 拥有重复研究／再现研究的文章
+    • 本身即为重复研究或再现研究的文章
+    • 按唯一 DOI 计数，同一篇论文保存两次仅计一次
+
+    📚 群组文献库：
+    如果您加入了群组文献库，表格上方会出现文献库选择器——统计数据对应所选的文献库，而不仅是个人文献库。
+
+    🌍 在 FLoRA Atlas 中打开：
+    打开 Replication Atlas 并预先载入所选文献库中已跟踪的 DOI，以了解您的阅读在整个重复研究文献中的位置。
+
+    💡 没有可用 DOI 的条目无法识别，因此不计入其中——按钮下方的提示会说明数量。
 
 onboarding-scan-title = 准备好扫描您的文献库了吗？
 onboarding-scan-content =
@@ -312,14 +336,24 @@ reproduction-checker-ban-success =
     }
 
 ## Reproduction Feature - Dialog
+replication-checker-dialog-title-studies = 发现相关研究
+replication-checker-dialog-intro-studies =
+    为以下条目找到研究：
+    “{ $title }”
+replication-checker-dialog-question-studies = 是否要将这些信息添加到您的文献库？
 reproduction-checker-dialog-title = 找到重复实验
-reproduction-checker-dialog-intro = 为以下文献找到重复实验：\n"{ $title }"
+reproduction-checker-dialog-intro =
+    为以下文献找到重复实验：
+    "{ $title }"
 reproduction-checker-dialog-count =
     { $count ->
         [one] 找到 1 篇重复实验：
        *[other] 找到 { $count } 篇重复实验：
     }
-reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   结果：{ $outcome }
+reproduction-checker-dialog-item =
+    { $index }. { $title }
+    ({ $year })
+       结果：{ $outcome }
 reproduction-checker-dialog-more =
     { $count ->
         [one] ...以及另外 1 篇重复实验

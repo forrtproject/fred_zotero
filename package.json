@@ -1,7 +1,7 @@
 {
   "name": "zotero-replication-checker",
   "type": "module",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Privacy-preserving Zotero plugin for checking item replications in research",
   "config": {
     "addonName": "Replication Checker for Zotero",
@@ -28,7 +28,7 @@
     "lint:fix": "prettier --write . && eslint . --fix",
     "release": "zotero-plugin release",
     "test": "npm run test:unit",
-    "test:unit": "mocha --require tsx/cjs --require test/unit/setup.ts 'test/unit/**/*.test.ts'",
+    "test:unit": "mocha --require tsx/cjs --require test/unit/setup.ts \"test/unit/**/*.test.ts\"",
     "test:integration": "zotero-plugin test --abort-on-fail --exit-on-finish",
     "test:integration-dev": "zotero-plugin test --abort-on-fail",
     "update-deps": "npm update --save",

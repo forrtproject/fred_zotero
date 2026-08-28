@@ -214,7 +214,7 @@ onboarding-welcome-content =
     • يضع علامات تلقائية على العناصر (مثل «له تكرار»، «هو تكرار»)
     • يقترح إضافة الدراسة الأصلية عند اكتشاف تكرار
     • يدعم المكتبات الجماعية للقراءة فقط — ينسخ العناصر إلى المكتبة الشخصية
-    • أسماء مجلدات قابلة للتخصيص للتكرارات والإعادات الحسابية
+    • جميع المجموعات داخل مجموعة واحدة «FLoRA»، بأسماء قابلة للتخصيص
     • يحظر التكرارات غير المرغوب فيها من عمليات الفحص المستقبلية
 
     لنقم بجولة سريعة للبدء!
@@ -243,10 +243,34 @@ onboarding-context-content =
     انقر بزر الفأرة الأيمن على عناصر التكرار ← حظر التكرار
     • يمنع إعادة إضافة التكرارات غير المرغوب فيها
 
+    🗂️ أين تُحفظ العناصر:
+    كل ما ينشئه الملحق يوجد داخل مجموعة واحدة باسم «FLoRA»
+    • FLoRA Replications، FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ التفضيلات:
     تحرير ← الإعدادات ← Replication Checker
     • تكرار الفحص التلقائي
     • الفحص التلقائي للعناصر الجديدة
+    • أسماء المجموعات، بما في ذلك حاوية «FLoRA»
+    • إحصاءات FLoRA لكل مكتبة، مع رابط إلى Replication Atlas
+
+onboarding-stats-title = إحصاءات FLoRA الخاصة بك
+onboarding-stats-content =
+    📍 الموقع: تحرير ← الإعدادات ← Replication Checker
+
+    📊 أعداد محدَّثة لما تعرفه FLoRA عن مكتبتك:
+    • المقالات التي لها تكرارات / إعادات حسابية
+    • المقالات التي هي نفسها تكرارات أو إعادات حسابية
+    • تُحسب حسب معرّف DOI الفريد، فالمقالة نفسها المحفوظة مرتين تُحسب مرة واحدة
+
+    📚 مكتبات المجموعات:
+    إذا كنت عضوًا في أي منها، يظهر مُحدِّد مكتبة أعلى الجدول — وتخص الإحصاءات المكتبة التي تختارها، لا مكتبتك الشخصية وحدها.
+
+    🌍 الفتح في FLoRA Atlas:
+    يفتح Replication Atlas محمَّلًا مسبقًا بمعرّفات DOI المتتبَّعة من المكتبة المحددة، لترى موضع قراءاتك ضمن أدبيات التكرار الأوسع.
+
+    💡 العناصر التي لا تحتوي على معرّف DOI صالح لا يمكن تحديدها، لذا تُستبعد — ويذكر تنبيه أسفل الزر عددها.
 
 onboarding-scan-title = هل أنت مستعد لمسح مكتبتك؟
 onboarding-scan-content =
@@ -312,14 +336,24 @@ reproduction-checker-ban-success =
     }
 
 ## Reproduction Feature - Dialog
+replication-checker-dialog-title-studies = تم العثور على دراسات ذات صلة
+replication-checker-dialog-intro-studies =
+    تم العثور على دراسات لـ:
+    «{ $title }»
+replication-checker-dialog-question-studies = هل تريد إضافة هذه المعلومات إلى مكتبتك؟
 reproduction-checker-dialog-title = تم العثور على دراسات الاستنساخ
-reproduction-checker-dialog-intro = تم العثور على دراسات الاستنساخ لـ:\n"{ $title }"
+reproduction-checker-dialog-intro =
+    تم العثور على دراسات الاستنساخ لـ:
+    "{ $title }"
 reproduction-checker-dialog-count =
     { $count ->
         [one] تم العثور على استنساخ واحد:
        *[other] تم العثور على { $count } استنساخ/استنساخات:
     }
-reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   النتيجة: { $outcome }
+reproduction-checker-dialog-item =
+    { $index }. { $title }
+    ({ $year })
+       النتيجة: { $outcome }
 reproduction-checker-dialog-more =
     { $count ->
         [one] ...واستنساخ واحد آخر

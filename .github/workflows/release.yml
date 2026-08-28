@@ -88,6 +88,22 @@ jobs:
           XPI_HASH=$(sha512sum "$XPI_NAME" | cut -d' ' -f1)
           echo "XPI SHA-512 hash: $XPI_HASH"
 
+          # Read the compatibility range from the built manifest rather than
+          # hardcoding it. Zotero decides whether to *offer* an update from these
+          # bounds, so a stale value here silently withholds the update from the
+          # very users it was built for — which is what happened to the Zotero 9
+          # support in v0.1.13, released while this file still said "8.*".
+          MANIFEST=".scaffold/build/addon/manifest.json"
+          MIN_VERSION=$(node -p "require('./$MANIFEST').applications.zotero.strict_min_version")
+          MAX_VERSION=$(node -p "require('./$MANIFEST').applications.zotero.strict_max_version")
+          echo "Compatibility from manifest: $MIN_VERSION - $MAX_VERSION"
+
+          if [ -z "$MIN_VERSION" ] || [ "$MIN_VERSION" = "undefined" ] \
+            || [ -z "$MAX_VERSION" ] || [ "$MAX_VERSION" = "undefined" ]; then
+            echo "::error::Could not read strict_min_version/strict_max_version from $MANIFEST"
+            exit 1
+          fi
+
           cat > update.json << EOF
           {
             "addons": {
@@ -99,8 +115,8 @@ jobs:
                     "update_hash": "sha512:${XPI_HASH}",
                     "applications": {
                       "zotero": {
-                        "strict_min_version": "7.0",
-                        "strict_max_version": "8.*"
+                        "strict_min_version": "${MIN_VERSION}",
+                        "strict_max_version": "${MAX_VERSION}"
                       }
                     }
                   }

@@ -26,9 +26,13 @@
         clearHighlights = args.clearHighlights;
         showScanPrompt = args.showScanPrompt || false;
 
-        // If not showing scan prompt (User Guide mode), only show first 3 screens
-        if (!showScanPrompt && args.screens.length > 3) {
-          screens = args.screens.slice(0, 3);
+        // The closing "Ready to Scan Your Library?" screen only makes sense when
+        // the scan is actually being offered, so User Guide mode and returning
+        // users drop it. Trimming the LAST screen rather than slicing to a fixed
+        // count matters: this used to keep only the first 3, which silently hid
+        // every screen added after it.
+        if (!showScanPrompt && args.screens.length > 1) {
+          screens = args.screens.slice(0, -1);
         } else {
           screens = args.screens;
         }

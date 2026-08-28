@@ -214,7 +214,7 @@ onboarding-welcome-content =
     • Etiqueta itens automaticamente (ex. «Tem replicação», «É replicação»)
     • Oferece adicionar o estudo original quando uma replicação é detectada
     • Suporte para bibliotecas de grupo somente leitura — copia itens para a biblioteca pessoal
-    • Nomes de pastas configuráveis para replicações e reproduções
+    • Todas as coleções dentro de uma única coleção «FLoRA», com nomes configuráveis
     • Bane replicações indesejadas em verificações futuras
     • Verificação automática: analisa novos itens automaticamente ou conforme agendamento
     • Preservação de privacidade: seus DOIs nunca são enviados ao servidor
@@ -246,10 +246,34 @@ onboarding-context-content =
     Clique com o botão direito nos itens de replicação → Banir replicação
     • Impede que replicações indesejadas sejam readicionadas
 
+    🗂️ Onde tudo fica:
+    Tudo o que o plugin cria fica dentro de uma única coleção «FLoRA»
+    • FLoRA Replications, FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ Preferências:
     Editar → Configurações → Replication Checker
     • Frequência de verificação automática
     • Verificação automática de novos itens
+    • Nomes das coleções, incluindo o contêiner «FLoRA»
+    • Estatísticas do FLoRA por biblioteca, com link para o Replication Atlas
+
+onboarding-stats-title = Suas estatísticas do FLoRA
+onboarding-stats-content =
+    📍 Local: Editar → Configurações → Replication Checker
+
+    📊 Contagens ao vivo do que o FLoRA sabe sobre sua biblioteca:
+    • Artigos com replicações / reproduções
+    • Artigos que são eles próprios replicações ou reproduções
+    • Contados por DOI único: o mesmo artigo salvo duas vezes conta uma vez
+
+    📚 Bibliotecas de grupo:
+    Se você participa de alguma, aparece um seletor de biblioteca acima da tabela — as estatísticas referem-se à biblioteca escolhida, não apenas à pessoal.
+
+    🌍 Abrir no FLoRA Atlas:
+    Abre o Replication Atlas pré-carregado com os DOIs monitorados da biblioteca selecionada, para ver como suas leituras se situam na literatura de replicação.
+
+    💡 Itens sem um DOI utilizável não podem ser identificados e por isso ficam de fora — uma nota abaixo do botão informa quantos.
 
 onboarding-scan-title = Pronto para analisar sua biblioteca?
 onboarding-scan-content =
@@ -315,14 +339,24 @@ reproduction-checker-ban-success =
     }
 
 ## Reproduction Feature - Dialog
+replication-checker-dialog-title-studies = Estudos relacionados encontrados
+replication-checker-dialog-intro-studies =
+    Estudos encontrados para:
+    «{ $title }»
+replication-checker-dialog-question-studies = Deseja adicionar estas informações à sua biblioteca?
 reproduction-checker-dialog-title = Estudos de Reprodução Encontrados
-reproduction-checker-dialog-intro = Estudos de reprodução encontrados para:\n"{ $title }"
+reproduction-checker-dialog-intro =
+    Estudos de reprodução encontrados para:
+    "{ $title }"
 reproduction-checker-dialog-count =
     { $count ->
         [one] 1 reprodução encontrada:
        *[other] { $count } reproduções encontradas:
     }
-reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   Resultado: { $outcome }
+reproduction-checker-dialog-item =
+    { $index }. { $title }
+    ({ $year })
+       Resultado: { $outcome }
 reproduction-checker-dialog-more =
     { $count ->
         [one] ...e mais 1 reprodução

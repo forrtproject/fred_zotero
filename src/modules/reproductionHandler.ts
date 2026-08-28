@@ -31,21 +31,15 @@ import {
   getTag, itemHasTag,
 } from "../utils/tags";
 import {
-  type CollectionSpec,
+  REPRODUCTION_SPEC,
+  READONLY_SUFFIX,
   getCollectionFolderName,
   getOrCreateCollection,
+  getOrCreateChildCollection,
 } from "../utils/collectionUtils";
 
 const FEEDBACK_URL = "https://tinyurl.com/y5evebv9";
 const DATA_ISSUES_URL = "https://forms.gle/Tn2eqasUU1WE86Dq8";
-
-const REPRODUCTION_SPEC: CollectionSpec = {
-  namePrefKey: "replication-checker.reproductionFolderName",
-  idsPrefKey: "replication-checker.reproductionCollectionIDs",
-  defaultName: "FLoRA Reproductions",
-  legacyNames: ["FLoRA Reproductions", "Reproduction folder"],
-  debugTag: "[ReproductionHandler]",
-};
 
 /**
  * Map reproduction outcome string to its FTL tag key.
@@ -275,7 +269,7 @@ export class ReproductionHandler {
 
       if (existingNote) {
         // Incremental update - append new reproductions
-        let currentHTML = existingNote.getNote();
+        const currentHTML = existingNote.getNote();
         const parser = new DOMParser();
         const doc = parser.parseFromString(currentHTML, "text/html");
         const ul = doc.querySelector("ul");
@@ -392,7 +386,6 @@ export class ReproductionHandler {
       // Get or create reproduction collection
       const libraryID = item.libraryID;
       const reproductionCollection = await getOrCreateCollection(libraryID, REPRODUCTION_SPEC);
-      const reproductionFolderName = reproductionCollection.name;
 
       // Process reproductions in transaction
       await Zotero.DB.executeTransaction(async () => {
@@ -517,9 +510,6 @@ export class ReproductionHandler {
             if (url_rep) {
               newItem.setField("url", url_rep);
             }
-            if (doi_rep) {
-              newItem.setField("DOI", doi_rep);
-            }
 
             // Add extra info — for multiple-originals items use a redirect message
             const normDoi = doi_rep && this.matcher
@@ -540,6 +530,9 @@ export class ReproductionHandler {
             if (extraInfo) {
               newItem.setField("extra", extraInfo.trim());
             }
+
+            // After Extra: falls back to an "Extra" line for item types with no DOI field
+            ZoteroIntegration.setDOI(newItem, doi_rep);
 
             // Fill any missing fields from BibTeX reference
             ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, rep.bibtex_ref);
@@ -816,23 +809,13 @@ export class ReproductionHandler {
 
       // Get or create reproduction folder in Personal library
       const reproductionCollection = await getOrCreateCollection(personalLibraryID, REPRODUCTION_SPEC);
-      const reproductionFolderName = reproductionCollection.name;
 
       // Get or create collection for originals
-      const originalsCollectionName = `${sourceLibraryName} [Read-Only]`;
-      let personalCollections = Zotero.Collections.getByLibrary(personalLibraryID, true);
-      let originalsCollection = personalCollections.find(
-        (c: any) => c.name === originalsCollectionName && !c.parentID
+      const originalsCollection = await getOrCreateChildCollection(
+        personalLibraryID,
+        `${sourceLibraryName}${READONLY_SUFFIX}`,
+        "[ReproductionHandler]",
       );
-
-      if (!originalsCollection) {
-        originalsCollection = new Zotero.Collection({
-          libraryID: personalLibraryID,
-          name: originalsCollectionName,
-        });
-        await originalsCollection.saveTx();
-        personalCollections = Zotero.Collections.getByLibrary(personalLibraryID, true);
-      }
 
       // Pre-check: which reproduction DOIs (across all items) have multiple originals
       const allReadOnlyRepDois: string[] = [];
@@ -1064,9 +1047,6 @@ export class ReproductionHandler {
     newItem.setField("title", reproductionData.title_rep || "Untitled Reproduction");
     newItem.setField("date", reproductionData.year_rep?.toString() || "");
     newItem.setField("url", reproductionData.url_rep || "");
-    if (reproductionData.doi_rep) {
-      newItem.setField("DOI", reproductionData.doi_rep);
-    }
 
     // Add extra info
     let extraInfo = "";
@@ -1079,6 +1059,10 @@ export class ReproductionHandler {
     if (extraInfo) {
       newItem.setField("extra", extraInfo.trim());
     }
+
+    // After Extra: this path defaults to "document", which has no DOI field at
+    // all, so the DOI always lands in Extra here unless BibTeX gave a richer type
+    ZoteroIntegration.setDOI(newItem, reproductionData.doi_rep);
 
     // Fill any missing fields from BibTeX reference
     ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, reproductionData.bibtex_ref);

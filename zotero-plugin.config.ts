@@ -44,7 +44,9 @@ export default defineConfig({
     waitForPlugin: `() => Zotero.${pkg.config.addonInstance}.data.initialized`,
     prefs: {
       // Skip onboarding modal in test profile
-      "extensions.zotero.replication-checker.onboardingVersion": 1,
+      // Keep in step with ONBOARDING_VERSION in src/modules/onboarding.ts, or
+      // the onboarding dialog opens modally and blocks the integration run.
+      "extensions.zotero.replication-checker.onboardingVersion": 2,
       "extensions.zotero.replication-checker.firstRunDone": true,
     },
   },

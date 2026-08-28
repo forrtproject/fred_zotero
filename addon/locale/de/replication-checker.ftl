@@ -214,7 +214,7 @@ onboarding-welcome-content =
     • Markiert Einträge automatisch (z. B. „Hat Replikation", „Ist Replikation")
     • Bietet an, die Originalstudie hinzuzufügen, wenn eine Replikation erkannt wird
     • Unterstützt schreibgeschützte Gruppenbiblotheken — kopiert Einträge in die Persönliche Bibliothek
-    • Konfigurierbare Ordnernamen für Replikationen und Reproduktionen
+    • Alle Sammlungen in einer einzigen Sammlung „FLoRA“, mit konfigurierbaren Namen
     • Sperrt unerwünschte Replikationen für zukünftige Prüfungen
     • Auto-Prüfung: scannt neue Einträge automatisch oder nach Zeitplan
     • Datenschutzkonform: Ihre DOIs werden nie an den Server übertragen
@@ -246,10 +246,34 @@ onboarding-context-content =
     Rechtsklick auf Replikationseinträge → Replikation sperren
     • Verhindert, dass unerwünschte Replikationen erneut hinzugefügt werden
 
+    🗂️ Wo alles landet:
+    Alles, was das Plugin anlegt, liegt in einer einzigen Sammlung „FLoRA“
+    • FLoRA Replications, FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ Einstellungen:
     Bearbeiten → Einstellungen → Replication Checker
     • Automatische Prüfhäufigkeit
     • Neue Einträge automatisch prüfen
+    • Sammlungsnamen, einschließlich des Containers „FLoRA“
+    • FLoRA-Statistiken pro Bibliothek, mit Link zum Replication Atlas
+
+onboarding-stats-title = Ihre FLoRA-Statistiken
+onboarding-stats-content =
+    📍 Ort: Bearbeiten → Einstellungen → Replication Checker
+
+    📊 Aktuelle Zahlen dazu, was FLoRA über Ihre Bibliothek weiß:
+    • Artikel mit Replikationen / Reproduktionen
+    • Artikel, die selbst Replikationen oder Reproduktionen sind
+    • Gezählt nach eindeutiger DOI — dasselbe Paper zweimal gespeichert zählt einmal
+
+    📚 Gruppenbibliotheken:
+    Wenn Sie welchen angehören, erscheint über der Tabelle eine Bibliotheksauswahl — die Statistiken gelten für die dort gewählte Bibliothek, nicht nur für Ihre persönliche.
+
+    🌍 In FLoRA Atlas öffnen:
+    Öffnet den Replication Atlas, vorbefüllt mit den erfassten DOIs der gewählten Bibliothek, um Ihre Lektüre im Kontext der Replikationsliteratur zu sehen.
+
+    💡 Einträge ohne verwertbare DOI lassen sich nicht identifizieren und bleiben daher unberücksichtigt — ein Hinweis unter der Schaltfläche nennt die Anzahl.
 
 onboarding-scan-title = Bereit, Ihre Bibliothek zu scannen?
 onboarding-scan-content =
@@ -315,14 +339,24 @@ reproduction-checker-ban-success =
     }
 
 ## Reproduction Feature - Dialog
+replication-checker-dialog-title-studies = Zugehörige Studien gefunden
+replication-checker-dialog-intro-studies =
+    Studien gefunden für:
+    „{ $title }“
+replication-checker-dialog-question-studies = Möchten Sie diese Informationen zu Ihrer Bibliothek hinzufügen?
 reproduction-checker-dialog-title = Reproduktionsstudien gefunden
-reproduction-checker-dialog-intro = Reproduktionsstudien gefunden für:\n"{ $title }"
+reproduction-checker-dialog-intro =
+    Reproduktionsstudien gefunden für:
+    "{ $title }"
 reproduction-checker-dialog-count =
     { $count ->
         [one] 1 Reproduktion gefunden:
        *[other] { $count } Reproduktionen gefunden:
     }
-reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   Ergebnis: { $outcome }
+reproduction-checker-dialog-item =
+    { $index }. { $title }
+    ({ $year })
+       Ergebnis: { $outcome }
 reproduction-checker-dialog-more =
     { $count ->
         [one] ...und 1 weitere Reproduktion

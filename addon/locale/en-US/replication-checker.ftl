@@ -103,6 +103,11 @@ replication-checker-dialog-more =
        *[other] ...and { $count } more replications
     }
 replication-checker-dialog-question = Would you like to add replication information?
+replication-checker-dialog-title-studies = Related Studies Found
+replication-checker-dialog-intro-studies =
+    Studies found for:
+    "{ $title }"
+replication-checker-dialog-question-studies = Would you like to add this information to your library?
 replication-checker-dialog-progress-title = Replication Information Added
 replication-checker-dialog-progress-line = Added replication information to "{ $title }"
 replication-checker-notif-replication-new =
@@ -202,7 +207,7 @@ onboarding-welcome-content =
     • Automatically tags items (e.g. "Has Replication", "Is Replication")
     • Offers to add the original study when a replication is detected
     • Read-only group library support — copies items to Personal library
-    • Configurable folder names for replications and reproductions
+    • All collections kept inside one "FLoRA" collection, with configurable names
     • Ban unwanted replications from future checks
     • Auto-check: scans new items automatically or on a schedule
     • Privacy-preserving: your DOIs are never sent to the server
@@ -234,10 +239,34 @@ onboarding-context-content =
     Right-click replication items → Ban Replication
     • Prevents unwanted replications from being re-added
 
+    🗂️ Where things go:
+    Everything the plugin creates lives inside one "FLoRA" collection
+    • FLoRA Replications, FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ Preferences:
     Edit → Settings → Replication Checker
     • Auto-check frequency
     • Auto-check new items
+    • Collection names, including the "FLoRA" container
+    • FLoRA stats per library, with a link to the Replication Atlas
+
+onboarding-stats-title = Your FLoRA Stats
+onboarding-stats-content =
+    📍 Location: Edit → Settings → Replication Checker
+
+    📊 Live counts of what FLoRA knows about your library:
+    • Articles with replications / reproductions
+    • Articles that are themselves replications or reproductions
+    • Counted by unique DOI, so the same paper saved twice counts once
+
+    📚 Group libraries:
+    If you belong to any, a Library picker appears above the table — stats are shown for whichever library you select, not just your personal one.
+
+    🌍 Open in FLoRA Atlas:
+    Opens the Replication Atlas pre-loaded with the tracked DOIs from the selected library, to see how your reading sits in the wider replication literature.
+
+    💡 Items without a usable DOI can't be identified, so they're excluded — a note below the button says how many.
 
 onboarding-scan-title = Ready to Scan Your Library?
 onboarding-scan-content =
@@ -354,6 +383,9 @@ pref-autocheck-monthly = Monthly (check every 30 days)
 pref-autocheck-new-items = Automatically check newly added library items (recommended)
 pref-autocheck-new-items-hint = Disable this option if you prefer to run all replication checks manually.
 pref-autocheck-note = Auto-check runs in the background when Zotero is open. You can still manually check using the Tools menu.
+pref-root-folder-title = FLoRA Container Collection
+pref-root-folder-description = Name of the top-level Zotero collection that holds all FLoRA collections below
+pref-root-folder-hint = Every collection below is created inside this one. Changing this will rename the existing collection automatically. All items will remain in the same collections.
 pref-folder-title = Replication Folder Name
 pref-folder-description = Name of the Zotero collection where replication items are stored
 pref-folder-hint = Changing this will rename the existing collection automatically. All items will remain in the same collection.
@@ -378,6 +410,17 @@ pref-stats-refresh = Refresh Stats
 pref-stats-no-originals = No tracked originals found in your library. Run a replication check first.
 pref-stats-open-atlas = Open in FLoRA Atlas ↗
 pref-stats-view-flora = View FLoRA Database →
+pref-stats-library = Library:
+pref-stats-no-doi-note =
+    { $count ->
+        [one] 1 tracked item has no usable DOI — it is not counted above and is not sent to the Atlas
+       *[other] { $count } tracked items have no usable DOI — they are not counted above and are not sent to the Atlas
+    }
+pref-stats-atlas-clipboard =
+    { $count ->
+        [one] 1 DOI copied — paste it into the Atlas DOI search field
+       *[other] { $count } DOIs copied — paste them into the Atlas DOI search field
+    }
 
 pref-blacklist-title = Banned Replications
 pref-blacklist-description = Manage replications you've banned from appearing in your library

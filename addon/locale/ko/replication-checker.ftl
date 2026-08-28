@@ -214,7 +214,7 @@ onboarding-welcome-content =
     • 항목 자동 태그 지정 (예: '복제 연구 있음', '복제 연구임')
     • 복제 연구가 감지될 때 원본 연구 추가 제안
     • 읽기 전용 그룹 라이브러리 지원 — 개인 라이브러리에 항목 복사
-    • 복제 및 재현 폴더 이름 설정 가능
+    • 모든 컬렉션을 하나의 'FLoRA' 컬렉션 안에 보관하며 이름 설정 가능
     • 향후 확인에서 원하지 않는 복제 연구 차단
 
     시작하기 위해 빠른 투어를 해봅시다!
@@ -243,10 +243,34 @@ onboarding-context-content =
     복제 연구 항목 우클릭 → 복제 연구 차단
     • 원하지 않는 복제 연구가 다시 추가되는 것을 방지
 
+    🗂️ 저장 위치:
+    플러그인이 만드는 모든 항목은 하나의 'FLoRA' 컬렉션 안에 들어갑니다
+    • FLoRA Replications, FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ 환경설정:
     편집 → 설정 → Replication Checker
     • 자동 확인 빈도
     • 새 항목 자동 확인
+    • 'FLoRA' 컨테이너를 포함한 컬렉션 이름
+    • 라이브러리별 FLoRA 통계 및 Replication Atlas 링크
+
+onboarding-stats-title = 나의 FLoRA 통계
+onboarding-stats-content =
+    📍 위치: 편집 → 설정 → Replication Checker
+
+    📊 FLoRA가 내 라이브러리에 대해 알고 있는 실시간 수치:
+    • 복제 연구 / 재현 연구가 있는 논문
+    • 그 자체가 복제 연구 또는 재현 연구인 논문
+    • 고유 DOI 기준으로 집계되므로 같은 논문을 두 번 저장해도 한 번만 계산됩니다
+
+    📚 그룹 라이브러리:
+    그룹 라이브러리가 있으면 표 위에 라이브러리 선택기가 나타나며, 개인 라이브러리뿐 아니라 선택한 라이브러리의 통계가 표시됩니다.
+
+    🌍 FLoRA Atlas에서 열기:
+    선택한 라이브러리에서 추적 중인 DOI가 미리 입력된 Replication Atlas를 열어, 내 문헌이 복제 연구 문헌 전체에서 어디에 위치하는지 확인합니다.
+
+    💡 사용 가능한 DOI가 없는 항목은 식별할 수 없어 제외되며, 버튼 아래 안내에 그 개수가 표시됩니다.
 
 onboarding-scan-title = 라이브러리를 스캔할 준비가 되셨나요?
 onboarding-scan-content =
@@ -312,14 +336,24 @@ reproduction-checker-ban-success =
     }
 
 ## Reproduction Feature - Dialog
+replication-checker-dialog-title-studies = 관련 연구 발견
+replication-checker-dialog-intro-studies =
+    다음 항목에 대한 연구를 찾았습니다:
+    '{ $title }'
+replication-checker-dialog-question-studies = 이 정보를 라이브러리에 추가하시겠습니까?
 reproduction-checker-dialog-title = 재현 연구 발견
-reproduction-checker-dialog-intro = 다음에 대한 재현 연구 발견:\n"{ $title }"
+reproduction-checker-dialog-intro =
+    다음에 대한 재현 연구 발견:
+    "{ $title }"
 reproduction-checker-dialog-count =
     { $count ->
         [one] 재현 연구 1개 발견:
        *[other] { $count }개의 재현 연구 발견:
     }
-reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   결과: { $outcome }
+reproduction-checker-dialog-item =
+    { $index }. { $title }
+    ({ $year })
+       결과: { $outcome }
 reproduction-checker-dialog-more =
     { $count ->
         [one] ...그리고 재현 연구 1개 더

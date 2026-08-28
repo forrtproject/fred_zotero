@@ -4,7 +4,7 @@
  */
 
 import type { ZoteroItemData } from "../types/replication";
-import { TAG_HAS_REPLICATION, TAG_HAS_BEEN_REPLICATED, getTag, ENGLISH_TAG_VALUES } from "./tags";
+import { getActiveLibraryID } from "./zoteroCompat";
 
 /**
  * Get all DOIs from the active library
@@ -12,7 +12,7 @@ import { TAG_HAS_REPLICATION, TAG_HAS_BEEN_REPLICATED, getTag, ENGLISH_TAG_VALUE
  * @returns Array of items with their DOIs
  */
 export async function getAllDOIsFromLibrary(): Promise<ZoteroItemData[]> {
-  const libraryID = Zotero.getActiveZoteroPane().getSelectedLibraryID();
+  const libraryID = getActiveLibraryID();
   const items: ZoteroItemData[] = [];
 
   const search = new Zotero.Search({ libraryID });
@@ -26,7 +26,7 @@ export async function getAllDOIsFromLibrary(): Promise<ZoteroItemData[]> {
     const item = await Zotero.Items.getAsync(itemID);
     if (!item) continue;
 
-    let doi = extractDOI(item);
+    const doi = extractDOI(item);
 
     if (doi) {
       items.push({
@@ -52,7 +52,7 @@ export function getSelectedDOIs(): ZoteroItemData[] {
   for (const item of selectedItems) {
     if (!item) continue;
 
-    let doi = extractDOI(item);
+    const doi = extractDOI(item);
 
     if (doi) {
       items.push({
@@ -99,7 +99,7 @@ export async function getDOIsFromCollection(collectionID: number): Promise<Zoter
       const item = await Zotero.Items.getAsync(itemID);
       if (!item) continue;
 
-      let doi = extractDOI(item);
+      const doi = extractDOI(item);
 
       if (doi) {
         items.push({
@@ -126,7 +126,14 @@ export async function getDOIsFromCollection(collectionID: number): Promise<Zoter
 
 /**
  * Extract DOI from item
- * Checks DOI field first, then Extra field for doi: pattern
+ *
+ * Looks in three places, in order of reliability:
+ *   1. The DOI field (absent entirely on book / report / thesis / document types)
+ *   2. A "DOI: 10.x" line in Extra — Zotero's convention for those item types
+ *   3. A doi.org link in the URL field — very common for items saved by the
+ *      browser connector, and previously ignored, so those items were invisible
+ *      to every check the plugin runs
+ *
  * @param item The Zotero item
  * @returns DOI string or null if not found
  */
@@ -143,7 +150,49 @@ export function extractDOI(item: Zotero.Item): string | null {
     }
   }
 
+  if (!doi) {
+    const url = item.getField("url") as string | undefined;
+    const urlMatch = url?.match(/^\s*https?:\/\/(?:dx\.)?doi\.org\/(10\.\S+?)\/?\s*$/i);
+    if (urlMatch) {
+      doi = urlMatch[1].trim();
+    }
+  }
+
   return doi ? String(doi) : null;
+}
+
+/**
+ * Set an item's DOI, falling back to the Extra field.
+ *
+ * Zotero only allows a DOI field on some item types (journalArticle,
+ * conferencePaper, preprint, dataset…). Book, bookSection, report, thesis,
+ * manuscript and document items *throw* on setField("DOI") — and
+ * bibtexTypeToZoteroType() maps @book/@techreport/@phdthesis/@misc onto exactly
+ * those types, so a FLoRA record of that kind aborted item creation entirely.
+ *
+ * For those types Zotero's own convention is a "DOI: 10.x" line in Extra, which
+ * extractDOI() reads back — so the item stays matchable on the next check
+ * instead of silently becoming a DOI-less article.
+ *
+ * Call this *after* any other write to the Extra field.
+ *
+ * @param item The item to write to
+ * @param doi The DOI, or a falsy value to skip
+ */
+export function setDOI(item: Zotero.Item, doi: string | null | undefined): void {
+  const value = String(doi ?? "").trim();
+  if (!value) return;
+
+  try {
+    item.setField("DOI", value);
+    return;
+  } catch {
+    // Item type has no DOI field — record it in Extra instead.
+  }
+
+  const extra = String(item.getField("extra") ?? "");
+  if (/^\s*DOI\s*[:=]/im.test(extra)) return;
+  item.setField("extra", extra ? `${extra}\nDOI: ${value}` : `DOI: ${value}`);
 }
 
 /**
@@ -176,48 +225,6 @@ export async function addNote(itemID: number, noteHTML: string): Promise<void> {
   note.parentID = itemID;
   note.setNote(noteHTML);
   await note.saveTx();
-}
-
-/**
- * Check if an item has the "Has Replication" tag
- * @param itemID The item ID
- * @returns True if item has the tag
- */
-export async function hasReplicationTag(itemID: number): Promise<boolean> {
-  const item = await Zotero.Items.getAsync(itemID);
-  if (!item) return false;
-
-  const tags = item.getTags();
-  // Check both the old "Has Replication" tag and the new "Has Been Replicated" tag
-  const localizedOld = getTag(TAG_HAS_REPLICATION);
-  const englishOld = ENGLISH_TAG_VALUES[TAG_HAS_REPLICATION];
-  const localizedNew = getTag(TAG_HAS_BEEN_REPLICATED);
-  const englishNew = ENGLISH_TAG_VALUES[TAG_HAS_BEEN_REPLICATED];
-  return tags.some((tag: any) =>
-    tag.tag === localizedOld || tag.tag === englishOld ||
-    tag.tag === localizedNew || (englishNew && tag.tag === englishNew)
-  );
-}
-
-/**
- * Get item details
- * @param itemID The item ID
- * @returns Object with title, authors, and year
- */
-export async function getItemDetails(
-  itemID: number
-): Promise<{ title: string; authors: string; year: string }> {
-  const item = await Zotero.Items.getAsync(itemID);
-  if (!item) throw new Error(`Item ${itemID} not found`);
-
-  return {
-    title: item.getField("title") as string,
-    authors: item
-      .getCreators()
-      .map((c: any) => c.lastName)
-      .join(", "),
-    year: item.getField("year") as string,
-  };
 }
 
 /**

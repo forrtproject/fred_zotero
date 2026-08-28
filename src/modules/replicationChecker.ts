@@ -28,46 +28,45 @@ import {
   copyItemToLibrary,
 } from "../utils/studyUtils";
 import {
-  type CollectionSpec,
+  REPLICATION_SPEC,
+  ORIGINALS_REPLICATION_SPEC,
+  ORIGINALS_REPRODUCTION_SPEC,
+  READONLY_SUFFIX,
   getCollectionFolderName,
-  findOrRenameCollection,
   getOrCreateCollection,
+  getOrCreateChildCollection,
 } from "../utils/collectionUtils";
+import { getSelectedCollections, getSelectedLibraryID } from "../utils/zoteroCompat";
 
 const AUTO_CHECK_PREF = "replication-checker.autoCheckFrequency";
 const NEW_ITEM_PREF = "replication-checker.autoCheckNewItems";
 
-// ---------------------------------------------------------------------------
-// Collection specs – one per managed folder type
-// ---------------------------------------------------------------------------
-
-const REPLICATION_SPEC: CollectionSpec = {
-  namePrefKey: "replication-checker.folderName",
-  idsPrefKey: "replication-checker.collectionIDs",
-  defaultName: "FLoRA Replications",
-  legacyNames: ["FLoRA Replications", "Replication folder"],
-  debugTag: "[ReplicationChecker]",
-};
-
-/** Originals that were fetched via "Add Original" for a *replication* item. */
-const ORIGINALS_REPLICATION_SPEC: CollectionSpec = {
-  namePrefKey: "replication-checker.originalsReplicationFolderName",
-  idsPrefKey: "replication-checker.originalsReplicationCollectionIDs",
-  defaultName: "FLoRA Originals linked to Replications",
-  legacyNames: [],
-  debugTag: "[ReplicationChecker]",
-};
-
-/** Originals that were fetched via "Add Original" for a *reproduction* item. */
-const ORIGINALS_REPRODUCTION_SPEC: CollectionSpec = {
-  namePrefKey: "replication-checker.originalsReproductionFolderName",
-  idsPrefKey: "replication-checker.originalsReproductionCollectionIDs",
-  defaultName: "FLoRA Originals linked to Reproductions",
-  legacyNames: [],
-  debugTag: "[ReplicationChecker]",
-};
-
 type LocaleParams = Record<string, string | number>;
+
+/** Locale keys for one kind of study, so the list builder can render either. */
+interface StudyListKeys {
+  count: string;
+  item: string;
+  more: string;
+  noTitle: string;
+  na: string;
+}
+
+const REPLICATION_LIST_KEYS: StudyListKeys = {
+  count: "replication-checker-dialog-count",
+  item: "replication-checker-dialog-item",
+  more: "replication-checker-dialog-more",
+  noTitle: "replication-checker-li-no-title",
+  na: "replication-checker-li-na",
+};
+
+const REPRODUCTION_LIST_KEYS: StudyListKeys = {
+  count: "reproduction-checker-dialog-count",
+  item: "reproduction-checker-dialog-item",
+  more: "reproduction-checker-dialog-more",
+  noTitle: "reproduction-checker-li-no-title",
+  na: "reproduction-checker-li-na",
+};
 const FEEDBACK_URL = "https://tinyurl.com/y5evebv9";
 const DATA_ISSUES_URL = "https://forms.gle/Tn2eqasUU1WE86Dq8";
 
@@ -294,7 +293,12 @@ export class ReplicationCheckerPlugin {
    * Convenience helper to add a line to the progress window without an icon
    */
   private addProgressLine(progressWin: Zotero.ProgressWindow, text: string): void {
-    progressWin.addLines(text, "");
+    // addDescription(), not addLines(): addLines() builds an ItemProgress row
+    // whose icon is an <img> fed straight from its second argument, so the ""
+    // passed here rendered as a broken-image box beside every status line.
+    // These lines are plain prose with no item behind them, which is exactly
+    // what addDescription() is for.
+    progressWin.addDescription(text);
   }
 
   /**
@@ -439,16 +443,17 @@ export class ReplicationCheckerPlugin {
           continue;
         }
 
-        if (result.replications.length > 0) {
-          await this.showReplicationDialog(itemData.itemID, result.replications);
+        // One dialog covering whatever was found. Reproductions used to be
+        // processed silently after this block, so an item with both was only
+        // asked about its replications, and an item with reproductions alone
+        // was never asked at all.
+        if (result.replications.length > 0 || result.reproductions.length > 0) {
+          await this.showStudiesFoundDialog(
+            itemData.itemID, result.replications, result.reproductions,
+          );
         } else if (result.originals.length > 0) {
-          // No replications but has originals - this is a replication study
+          // No replications or reproductions but has originals - this is a replication study
           await this.showIsReplicationDialog(itemData.itemID, result);
-        }
-
-        // Also process reproductions if found
-        if (result.reproductions.length > 0) {
-          await this.processReproductionsForItem(itemData.itemID, result.reproductions);
         }
       }
     } catch (error) {
@@ -456,6 +461,112 @@ export class ReplicationCheckerPlugin {
         `Error checking new items: ${error instanceof Error ? error.message : String(error)}`
       ));
     }
+  }
+
+  /**
+   * Group API results by the library each matching item lives in, separating
+   * replications from reproductions. Each item is recorded at most once per
+   * kind, so overlapping results never double-process an item.
+   */
+  private async groupResultsByLibrary(
+    results: DOICheckResult[],
+    sourceItems: ZoteroItemData[],
+  ): Promise<{
+    replications: Map<number, Map<number, RelatedStudy[]>>;
+    reproductions: Map<number, Map<number, RelatedStudy[]>>;
+  }> {
+    const replications = new Map<number, Map<number, RelatedStudy[]>>();
+    const reproductions = new Map<number, Map<number, RelatedStudy[]>>();
+    const seenReplications = new Set<number>();
+    const seenReproductions = new Set<number>();
+
+    const record = async (
+      target: Map<number, Map<number, RelatedStudy[]>>,
+      seen: Set<number>,
+      itemID: number,
+      studies: RelatedStudy[],
+    ): Promise<void> => {
+      if (seen.has(itemID)) return;
+      const item = await Zotero.Items.getAsync(itemID);
+      if (!item) return;
+      if (!target.has(item.libraryID)) target.set(item.libraryID, new Map());
+      target.get(item.libraryID)!.set(itemID, studies);
+      seen.add(itemID);
+    };
+
+    for (const result of results) {
+      if (result.replications.length === 0 && result.reproductions.length === 0) continue;
+
+      const matchingItems = sourceItems.filter(
+        (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
+      );
+
+      for (const { itemID } of matchingItems) {
+        if (result.replications.length > 0) {
+          await record(replications, seenReplications, itemID, result.replications);
+        }
+        if (result.reproductions.length > 0) {
+          await record(reproductions, seenReproductions, itemID, result.reproductions);
+        }
+      }
+    }
+
+    return { replications, reproductions };
+  }
+
+  /**
+   * Apply grouped results, routing read-only libraries through the copy-to-
+   * Personal-library flow. Returns how many items were processed of each kind.
+   */
+  private async applyGroupedResults(grouped: {
+    replications: Map<number, Map<number, RelatedStudy[]>>;
+    reproductions: Map<number, Map<number, RelatedStudy[]>>;
+  }): Promise<{ matchCount: number; reproductionMatchCount: number }> {
+    let matchCount = 0;
+    for (const [libraryID, itemsMap] of grouped.replications) {
+      if (!this.isLibraryEditable(libraryID)) {
+        await this.handleReadOnlyLibrary(itemsMap, libraryID);
+        matchCount += itemsMap.size;
+        continue;
+      }
+      for (const [itemID, replications] of itemsMap) {
+        try {
+          await this.notifyUserAndAddReplications(itemID, replications);
+          matchCount++;
+        } catch (error) {
+          Zotero.logError(new Error(
+            `Error processing item ${itemID}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          ));
+        }
+      }
+    }
+
+    let reproductionMatchCount = 0;
+    for (const [libraryID, itemsMap] of grouped.reproductions) {
+      if (!this.isLibraryEditable(libraryID)) {
+        await reproductionHandler.handleReadOnlyReproductions(
+          itemsMap, libraryID, Zotero.Libraries.userLibraryID,
+        );
+        reproductionMatchCount += itemsMap.size;
+        continue;
+      }
+      for (const [itemID, reproductions] of itemsMap) {
+        try {
+          await this.processReproductionsForItem(itemID, reproductions);
+          reproductionMatchCount++;
+        } catch (error) {
+          Zotero.logError(new Error(
+            `Error processing reproductions for item ${itemID}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          ));
+        }
+      }
+    }
+
+    return { matchCount, reproductionMatchCount };
   }
 
   /**
@@ -496,106 +607,8 @@ export class ReplicationCheckerPlugin {
         return;
       }
 
-      // Process results - group items by library and check permissions
-      const itemsByLibrary = new Map<number, Map<number, any[]>>();
-      const itemsWithReproductionsByLibrary = new Map<number, Map<number, RelatedStudy[]>>();
-      const processedItems = new Set<number>();
-      const processedReproductionItems = new Set<number>();
-
-      for (const result of results) {
-        // Process replications
-        if (result.replications.length > 0) {
-          const matchingItems = libraryItems.filter(
-            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
-          );
-
-          for (const libraryItem of matchingItems) {
-            if (!processedItems.has(libraryItem.itemID)) {
-              const itemObj = await Zotero.Items.getAsync(libraryItem.itemID);
-              if (!itemObj) continue;
-
-              const libraryID = itemObj.libraryID;
-
-              if (!itemsByLibrary.has(libraryID)) {
-                itemsByLibrary.set(libraryID, new Map());
-              }
-              itemsByLibrary.get(libraryID)!.set(libraryItem.itemID, result.replications);
-              processedItems.add(libraryItem.itemID);
-            }
-          }
-        }
-
-        // Process reproductions
-        if (result.reproductions.length > 0) {
-          const matchingItems = libraryItems.filter(
-            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
-          );
-
-          for (const libraryItem of matchingItems) {
-            if (!processedReproductionItems.has(libraryItem.itemID)) {
-              const itemObj = await Zotero.Items.getAsync(libraryItem.itemID);
-              if (!itemObj) continue;
-
-              const libraryID = itemObj.libraryID;
-
-              if (!itemsWithReproductionsByLibrary.has(libraryID)) {
-                itemsWithReproductionsByLibrary.set(libraryID, new Map());
-              }
-              itemsWithReproductionsByLibrary.get(libraryID)!.set(libraryItem.itemID, result.reproductions);
-              processedReproductionItems.add(libraryItem.itemID);
-            }
-          }
-        }
-      }
-
-      // Process each library separately based on permissions - Replications
-      let matchCount = 0;
-      for (const [libraryID, itemsMap] of itemsByLibrary) {
-        if (!this.isLibraryEditable(libraryID)) {
-          // Read-only library - use special handling
-          await this.handleReadOnlyLibrary(itemsMap, libraryID);
-          matchCount += itemsMap.size;
-        } else {
-          // Editable library - use existing flow
-          for (const [itemID, replications] of itemsMap) {
-            try {
-              await this.notifyUserAndAddReplications(itemID, replications);
-              matchCount++;
-            } catch (error) {
-              Zotero.logError(new Error(
-                `Error processing item ${itemID}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              ));
-            }
-          }
-        }
-      }
-
-      // Process each library separately based on permissions - Reproductions
-      let reproductionMatchCount = 0;
-      for (const [libraryID, itemsMap] of itemsWithReproductionsByLibrary) {
-        if (!this.isLibraryEditable(libraryID)) {
-          // Read-only library - use special handling for reproductions
-          const personalLibraryID = Zotero.Libraries.userLibraryID;
-          await reproductionHandler.handleReadOnlyReproductions(itemsMap, libraryID, personalLibraryID);
-          reproductionMatchCount += itemsMap.size;
-        } else {
-          // Editable library - process reproductions
-          for (const [itemID, reproductions] of itemsMap) {
-            try {
-              await this.processReproductionsForItem(itemID, reproductions);
-              reproductionMatchCount++;
-            } catch (error) {
-              Zotero.logError(new Error(
-                `Error processing reproductions for item ${itemID}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              ));
-            }
-          }
-        }
-      }
+      const grouped = await this.groupResultsByLibrary(results, libraryItems);
+      const { matchCount, reproductionMatchCount } = await this.applyGroupedResults(grouped);
 
       // Update progress
       progressWin.changeHeadline(getString("replication-checker-progress-complete"));
@@ -649,103 +662,8 @@ export class ReplicationCheckerPlugin {
         return;
       }
 
-      // Process results - group items by library and check permissions
-      const itemsByLibrary = new Map<number, Map<number, any[]>>();
-      const itemsWithReproductionsByLibrary = new Map<number, Map<number, RelatedStudy[]>>();
-      const processedItems = new Set<number>();
-      const processedReproductionItems = new Set<number>();
-
-      for (const result of results) {
-        // Process replications
-        if (result.replications.length > 0) {
-          const matchingItems = selectedItems.filter(
-            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
-          );
-
-          for (const libraryItem of matchingItems) {
-            if (!processedItems.has(libraryItem.itemID)) {
-              const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
-              if (!hasTag || result.replications.length > 0) {
-                const itemObj = await Zotero.Items.getAsync(libraryItem.itemID);
-                if (!itemObj) continue;
-
-                const libraryID = itemObj.libraryID;
-
-                if (!itemsByLibrary.has(libraryID)) {
-                  itemsByLibrary.set(libraryID, new Map());
-                }
-                itemsByLibrary.get(libraryID)!.set(libraryItem.itemID, result.replications);
-                processedItems.add(libraryItem.itemID);
-              }
-            }
-          }
-        }
-
-        // Process reproductions
-        if (result.reproductions.length > 0) {
-          const matchingItems = selectedItems.filter(
-            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
-          );
-
-          for (const libraryItem of matchingItems) {
-            if (!processedReproductionItems.has(libraryItem.itemID)) {
-              const itemObj = await Zotero.Items.getAsync(libraryItem.itemID);
-              if (!itemObj) continue;
-
-              const libraryID = itemObj.libraryID;
-
-              if (!itemsWithReproductionsByLibrary.has(libraryID)) {
-                itemsWithReproductionsByLibrary.set(libraryID, new Map());
-              }
-              itemsWithReproductionsByLibrary.get(libraryID)!.set(libraryItem.itemID, result.reproductions);
-              processedReproductionItems.add(libraryItem.itemID);
-            }
-          }
-        }
-      }
-
-      // Process each library separately based on permissions - Replications
-      for (const [libraryID, itemsMap] of itemsByLibrary) {
-        if (!this.isLibraryEditable(libraryID)) {
-          // Read-only library - use special handling
-          await this.handleReadOnlyLibrary(itemsMap, libraryID);
-        } else {
-          // Editable library - use existing flow
-          for (const [itemID, replications] of itemsMap) {
-            try {
-              await this.notifyUserAndAddReplications(itemID, replications);
-            } catch (error) {
-              Zotero.logError(new Error(
-                `Error processing item ${itemID}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              ));
-            }
-          }
-        }
-      }
-
-      // Process each library separately based on permissions - Reproductions
-      for (const [libraryID, itemsMap] of itemsWithReproductionsByLibrary) {
-        if (!this.isLibraryEditable(libraryID)) {
-          // Read-only library - use special handling for reproductions
-          const personalLibraryID = Zotero.Libraries.userLibraryID;
-          await reproductionHandler.handleReadOnlyReproductions(itemsMap, libraryID, personalLibraryID);
-        } else {
-          // Editable library - process reproductions
-          for (const [itemID, reproductions] of itemsMap) {
-            try {
-              await this.processReproductionsForItem(itemID, reproductions);
-            } catch (error) {
-              Zotero.logError(new Error(
-                `Error processing reproductions for item ${itemID}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              ));
-            }
-          }
-        }
-      }
+      const grouped = await this.groupResultsByLibrary(results, selectedItems);
+      await this.applyGroupedResults(grouped);
 
       // Show results alert
       this.showResultsAlert(results, uniqueDois.length, selectedItems.length, true);
@@ -765,10 +683,12 @@ export class ReplicationCheckerPlugin {
     try {
       if (!this.matcher) throw new Error("Matcher not initialized");
 
-      const collection = Zotero.getActiveZoteroPane().getSelectedCollection();
-      if (!collection) {
+      // Zotero 10 allows several collections to be selected at once; earlier
+      // versions yield at most one. Check every selected collection.
+      const collections = getSelectedCollections();
+      if (collections.length === 0) {
         // If a library is selected (not a collection), run the full library check
-        const selectedLibraryID = Zotero.getActiveZoteroPane().getSelectedLibraryID();
+        const selectedLibraryID = getSelectedLibraryID();
         if (selectedLibraryID !== undefined) {
           return this.checkEntireLibrary();
         }
@@ -782,9 +702,19 @@ export class ReplicationCheckerPlugin {
       progressWin.show();
       this.addProgressLine(progressWin, getString("replication-checker-progress-scanning-collection"));
 
-      // Get DOIs from collection
-      const selectedItems = await ZoteroIntegration.getDOIsFromCollection(collection.id);
-      Zotero.debug(`Retrieved ${selectedItems.length} items from collection ${collection.id}`);
+      // Get DOIs from every selected collection, deduplicated by item: the same
+      // item can sit in more than one of them.
+      const byItemID = new Map<number, ZoteroItemData>();
+      for (const collection of collections) {
+        for (const entry of await ZoteroIntegration.getDOIsFromCollection(collection.id)) {
+          byItemID.set(entry.itemID, entry);
+        }
+      }
+      const selectedItems = [...byItemID.values()];
+      Zotero.debug(
+        `Retrieved ${selectedItems.length} items from ${collections.length} collection(s): ` +
+        collections.map((c: any) => c.id).join(", ")
+      );
 
       if (!selectedItems || selectedItems.length === 0) {
         progressWin.changeHeadline(getString("replication-checker-progress-complete"));
@@ -816,109 +746,8 @@ export class ReplicationCheckerPlugin {
         return;
       }
 
-      // Process results - group items by library and check permissions
-      const itemsByLibrary = new Map<number, Map<number, any[]>>();
-      const itemsWithReproductionsByLibrary = new Map<number, Map<number, RelatedStudy[]>>();
-      const processedItems = new Set<number>();
-      const processedReproductionItems = new Set<number>();
-
-      for (const result of results) {
-        // Process replications
-        if (result.replications.length > 0) {
-          const matchingItems = selectedItems.filter(
-            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
-          );
-
-          for (const libraryItem of matchingItems) {
-            if (!processedItems.has(libraryItem.itemID)) {
-              const hasTag = await ZoteroIntegration.hasReplicationTag(libraryItem.itemID);
-              if (!hasTag || result.replications.length > 0) {
-                const itemObj = await Zotero.Items.getAsync(libraryItem.itemID);
-                if (!itemObj) continue;
-
-                const libraryID = itemObj.libraryID;
-
-                if (!itemsByLibrary.has(libraryID)) {
-                  itemsByLibrary.set(libraryID, new Map());
-                }
-                itemsByLibrary.get(libraryID)!.set(libraryItem.itemID, result.replications);
-                processedItems.add(libraryItem.itemID);
-              }
-            }
-          }
-        }
-
-        // Process reproductions
-        if (result.reproductions.length > 0) {
-          const matchingItems = selectedItems.filter(
-            (item) => this.matcher!.normalizeDoi(item.doi) === result.doi
-          );
-
-          for (const libraryItem of matchingItems) {
-            if (!processedReproductionItems.has(libraryItem.itemID)) {
-              const itemObj = await Zotero.Items.getAsync(libraryItem.itemID);
-              if (!itemObj) continue;
-
-              const libraryID = itemObj.libraryID;
-
-              if (!itemsWithReproductionsByLibrary.has(libraryID)) {
-                itemsWithReproductionsByLibrary.set(libraryID, new Map());
-              }
-              itemsWithReproductionsByLibrary.get(libraryID)!.set(libraryItem.itemID, result.reproductions);
-              processedReproductionItems.add(libraryItem.itemID);
-            }
-          }
-        }
-      }
-
-      // Process each library separately based on permissions - Replications
-      let matchCount = 0;
-      for (const [libraryID, itemsMap] of itemsByLibrary) {
-        if (!this.isLibraryEditable(libraryID)) {
-          // Read-only library - use special handling
-          await this.handleReadOnlyLibrary(itemsMap, libraryID);
-          matchCount += itemsMap.size;
-        } else {
-          // Editable library - use existing flow
-          for (const [itemID, replications] of itemsMap) {
-            try {
-              await this.notifyUserAndAddReplications(itemID, replications);
-              matchCount++;
-            } catch (error) {
-              Zotero.logError(new Error(
-                `Error processing item ${itemID}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              ));
-            }
-          }
-        }
-      }
-
-      // Process each library separately based on permissions - Reproductions
-      let reproductionMatchCount = 0;
-      for (const [libraryID, itemsMap] of itemsWithReproductionsByLibrary) {
-        if (!this.isLibraryEditable(libraryID)) {
-          // Read-only library - use special handling for reproductions
-          const personalLibraryID = Zotero.Libraries.userLibraryID;
-          await reproductionHandler.handleReadOnlyReproductions(itemsMap, libraryID, personalLibraryID);
-          reproductionMatchCount += itemsMap.size;
-        } else {
-          // Editable library - process reproductions
-          for (const [itemID, reproductions] of itemsMap) {
-            try {
-              await this.processReproductionsForItem(itemID, reproductions);
-              reproductionMatchCount++;
-            } catch (error) {
-              Zotero.logError(new Error(
-                `Error processing reproductions for item ${itemID}: ${
-                  error instanceof Error ? error.message : String(error)
-                }`
-              ));
-            }
-          }
-        }
-      }
+      const grouped = await this.groupResultsByLibrary(results, selectedItems);
+      const { matchCount, reproductionMatchCount } = await this.applyGroupedResults(grouped);
 
       // Update progress
       progressWin.changeHeadline(getString("replication-checker-progress-complete"));
@@ -1042,8 +871,8 @@ export class ReplicationCheckerPlugin {
         // buttonPressed === 0 → Add All (originalsToProcess unchanged)
       }
 
-      const personalLibraryID = Zotero.Libraries.userLibraryID;
-      const originalsCollection = await getOrCreateCollection(personalLibraryID, originalsSpec);
+      const targetLibraryID = this.targetLibraryFor(item);
+      const originalsCollection = await getOrCreateCollection(targetLibraryID, originalsSpec);
       const folderName = originalsCollection.name;
 
       let newCount = 0;
@@ -1054,8 +883,8 @@ export class ReplicationCheckerPlugin {
       this.isAddingOriginals = true;
       try {
       for (const original of originalsToProcess) {
-        // Check if this original already exists in the Personal library
-        const search = new Zotero.Search({ libraryID: personalLibraryID });
+        // Check if this original already exists in the target library
+        const search = new Zotero.Search({ libraryID: targetLibraryID });
         search.addCondition("DOI", "is", original.doi);
         const existingIDs = await search.search();
 
@@ -1067,7 +896,7 @@ export class ReplicationCheckerPlugin {
           existingCount++;
           Zotero.debug(`[ReplicationChecker] Using existing original item ${originalItemID}`);
         } else {
-          originalItemID = await this.createItemFromRelatedStudy(original, personalLibraryID);
+          originalItemID = await this.createItemFromRelatedStudy(original, targetLibraryID);
           isNewItem = true;
           newCount++;
           this.pluginAddedItems.add(originalItemID);
@@ -1085,10 +914,7 @@ export class ReplicationCheckerPlugin {
         }
 
         // Bidirectional relationship
-        item.addRelatedItem(originalItem);
-        originalItem.addRelatedItem(item);
-        await item.saveTx();
-        await originalItem.saveTx();
+        await this.linkReplicationAndOriginal(item, originalItem);
 
         // Create/update "Replications Found" note on original
         await this.createReplicationNoteForOriginal(originalItemID, original.doi);
@@ -1425,8 +1251,8 @@ export class ReplicationCheckerPlugin {
       // ── STEP 4: Determine which originals to process ──────────────────────
 
       // ── STEP 5: Process the chosen originals ──────────────────────────────
-      const personalLibraryID = Zotero.Libraries.userLibraryID;
-      const originalsCollection = await getOrCreateCollection(personalLibraryID, ORIGINALS_REPLICATION_SPEC);
+      const targetLibraryID = this.targetLibraryFor(item);
+      const originalsCollection = await getOrCreateCollection(targetLibraryID, ORIGINALS_REPLICATION_SPEC);
       const originalsFolder = originalsCollection.name;
 
       let origNewCount = 0;
@@ -1437,7 +1263,7 @@ export class ReplicationCheckerPlugin {
       this.isAddingOriginals = true;
       try {
       for (const original of originalsToProcess) {
-        const search = new Zotero.Search({ libraryID: personalLibraryID });
+        const search = new Zotero.Search({ libraryID: targetLibraryID });
         search.addCondition("DOI", "is", original.doi);
         const existingIDs = await search.search();
 
@@ -1448,7 +1274,7 @@ export class ReplicationCheckerPlugin {
           origExistingCount++;
           Zotero.debug(`[ReplicationChecker] Using existing original item ${originalItemID}`);
         } else {
-          originalItemID = await this.createItemFromRelatedStudy(original, personalLibraryID);
+          originalItemID = await this.createItemFromRelatedStudy(original, targetLibraryID);
           isNewItem = true;
           origNewCount++;
           this.pluginAddedItems.add(originalItemID);
@@ -1466,12 +1292,7 @@ export class ReplicationCheckerPlugin {
         }
 
         // Bidirectional relationship
-        item.addRelatedItem(originalItem);
-        originalItem.addRelatedItem(item);
-        await item.saveTx();
-        await originalItem.saveTx();
-
-        Zotero.debug(`[ReplicationChecker] Linked replication ${item.id} ↔ original ${originalItemID}`);
+        await this.linkReplicationAndOriginal(item, originalItem);
 
         // Note on original
         await this.createReplicationNoteForOriginal(originalItemID, original.doi);
@@ -1531,10 +1352,50 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
-   * Show dialog asking user if they want to add replication information
+   * Render one "Found N …:" block, listing at most three studies.
    */
-  private async showReplicationDialog(itemID: number, replications: RelatedStudy[]): Promise<void> {
+  private buildStudyList(studies: RelatedStudy[], keys: StudyListKeys): string {
+    let section = `${getString(keys.count, { count: studies.length })}\n\n`;
+
+    for (let i = 0; i < Math.min(studies.length, 3); i++) {
+      const study = studies[i];
+      section += `${getString(keys.item, {
+        index: i + 1,
+        title: study.title || getString(keys.noTitle),
+        year: study.year || getString(keys.na),
+        outcome: study.outcome || getString(keys.na),
+      })}\n\n`;
+    }
+
+    if (studies.length > 3) {
+      section += `${getString(keys.more, { count: studies.length - 3 })}\n\n`;
+    }
+
+    return section;
+  }
+
+  /**
+   * Ask whether to add the studies FLoRA found for an item.
+   *
+   * An item can be both replicated and reproduced. This dialog used to list
+   * replications only, while reproductions were processed silently behind it —
+   * so a user was asked about one thing and handed another, and an item with
+   * reproductions but no replications got no dialog at all. Both kinds are now
+   * listed, and the single answer governs both.
+   *
+   * The replication-only wording is kept verbatim so the existing translations
+   * still apply; anything involving reproductions uses a neutral set of strings.
+   */
+  private async showStudiesFoundDialog(
+    itemID: number,
+    replications: RelatedStudy[],
+    reproductions: RelatedStudy[],
+  ): Promise<void> {
     try {
+      const hasReplications = replications.length > 0;
+      const hasReproductions = reproductions.length > 0;
+      if (!hasReplications && !hasReproductions) return;
+
       const promptWin = this.getPromptWindow();
       if (!promptWin) return;
 
@@ -1543,41 +1404,51 @@ export class ReplicationCheckerPlugin {
 
       const itemTitle = item.getField("title") as string;
 
-      // Build message
-      let message = `${getString("replication-checker-dialog-intro", { title: itemTitle })}\n\n`;
-      message += `${getString("replication-checker-dialog-count", { count: replications.length })}\n\n`;
+      // Single-kind cases reuse the wording that already exists (and is already
+      // translated) for that kind. Only the mixed case needs neutral strings.
+      const hasBoth = hasReplications && hasReproductions;
+      const pick = (both: string, repro: string, repl: string) =>
+        hasBoth ? both : hasReproductions ? repro : repl;
 
-      for (let i = 0; i < Math.min(replications.length, 3); i++) {
-        const rep = replications[i];
-        const entry = getString("replication-checker-dialog-item", {
-          index: i + 1,
-          title: rep.title || getString("replication-checker-li-no-title"),
-          year: rep.year || getString("replication-checker-li-na"),
-          outcome: rep.outcome || getString("replication-checker-li-na"),
-        });
-        message += `${entry}\n\n`;
+      const title = getString(pick(
+        "replication-checker-dialog-title-studies",
+        "reproduction-checker-dialog-title",
+        "replication-checker-dialog-title",
+      ));
+
+      let message = `${getString(pick(
+        "replication-checker-dialog-intro-studies",
+        "reproduction-checker-dialog-intro",
+        "replication-checker-dialog-intro",
+      ), { title: itemTitle })}\n\n`;
+
+      if (hasReplications) {
+        message += this.buildStudyList(replications, REPLICATION_LIST_KEYS);
+      }
+      if (hasReproductions) {
+        message += this.buildStudyList(reproductions, REPRODUCTION_LIST_KEYS);
       }
 
-      if (replications.length > 3) {
-        message += `${getString("replication-checker-dialog-more", {
-          count: replications.length - 3,
-        })}\n\n`;
+      message += getString(pick(
+        "replication-checker-dialog-question-studies",
+        "reproduction-checker-dialog-question",
+        "replication-checker-dialog-question",
+      ));
+
+      if (!Services.prompt.confirm(promptWin, title, message)) {
+        // Declining now skips reproductions too. Previously they were written
+        // regardless of the answer, which made "Cancel" only half true.
+        Zotero.debug(`ReplicationChecker: User declined study info for item ${itemID}`);
+        return;
       }
 
-      message += getString("replication-checker-dialog-question");
+      const progressWin = new Zotero.ProgressWindow();
+      progressWin.changeHeadline(getString("replication-checker-dialog-progress-title"));
+      progressWin.show();
 
-      // Show confirmation dialog
-      const result = Services.prompt.confirm(promptWin, getString("replication-checker-dialog-title"), message);
-
-      if (result) {
-        // User clicked "OK" - add tags, notes, and add to folder
+      if (hasReplications) {
         const { newCount, existingCount, folderName } =
           await this.notifyUserAndAddReplications(itemID, replications);
-
-        // Show success message reflecting new vs existing
-        const progressWin = new Zotero.ProgressWindow();
-        progressWin.changeHeadline(getString("replication-checker-dialog-progress-title"));
-        progressWin.show();
 
         let notifMsg: string;
         if (newCount > 0 && existingCount === 0) {
@@ -1596,58 +1467,20 @@ export class ReplicationCheckerPlugin {
           notifMsg = getString("replication-checker-dialog-progress-line", { title: itemTitle });
         }
         this.addProgressLine(progressWin, notifMsg);
-        progressWin.startCloseTimer(3000);
-
-        Zotero.debug(`ReplicationChecker: User accepted replication info for item ${itemID}`);
-      } else {
-        Zotero.debug(`ReplicationChecker: User declined replication info for item ${itemID}`);
       }
+
+      if (hasReproductions) {
+        await this.processReproductionsForItem(itemID, reproductions);
+        this.addProgressLine(progressWin, getString(
+          "reproduction-checker-dialog-progress-line", { title: itemTitle },
+        ));
+      }
+
+      progressWin.startCloseTimer(3000);
+      Zotero.debug(`ReplicationChecker: User accepted study info for item ${itemID}`);
     } catch (error) {
       Zotero.logError(new Error(
-        `Error showing replication dialog: ${error instanceof Error ? error.message : String(error)}`
-      ));
-    }
-  }
-
-  /**
-   * Process an article that exists in FLoRA database
-   * Tags the article based on whether it has replications, is a replication, etc.
-   * @param itemID The Zotero item ID
-   * @param result The DOICheckResult from the API
-   */
-  private async processArticleInFLoRA(itemID: number, result: DOICheckResult): Promise<void> {
-    try {
-      const item = await Zotero.Items.getAsync(itemID);
-      if (!item) return;
-
-      Zotero.debug(`[ReplicationChecker] Processing article in FLoRA: ${result.doi}`);
-
-      // Tag the item as being in FLoRA
-      await ZoteroIntegration.addTag(itemID, getTag(TAG_IN_FLORA));
-
-      // If this article has been replicated (has replications)
-      if (result.replications.length > 0) {
-        await ZoteroIntegration.addTag(itemID, getTag(TAG_HAS_BEEN_REPLICATED));
-        Zotero.debug(`[ReplicationChecker] Tagged ${result.doi} as "Has Been Replicated" (${result.replications.length} replications)`);
-      }
-
-      // If this article has been reproduced (has reproductions)
-      if (result.reproductions.length > 0) {
-        await ZoteroIntegration.addTag(itemID, getTag(TAG_HAS_BEEN_REPRODUCED));
-        Zotero.debug(`[ReplicationChecker] Tagged ${result.doi} as "Has Been Reproduced" (${result.reproductions.length} reproductions)`);
-      }
-
-      // If this article is a replication of other studies (has originals)
-      if (result.originals.length > 0) {
-        await ZoteroIntegration.addTag(itemID, getTag(TAG_IS_REPLICATION));
-        Zotero.debug(`[ReplicationChecker] Tagged ${result.doi} as "Is Replication" (replicates ${result.originals.length} studies)`);
-      }
-
-    } catch (error) {
-      Zotero.logError(new Error(
-        `Error processing article in FLoRA for item ${itemID}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        `Error showing studies dialog: ${error instanceof Error ? error.message : String(error)}`
       ));
     }
   }
@@ -1807,7 +1640,7 @@ export class ReplicationCheckerPlugin {
 
       if (existingNote) {
         // Incremental update
-        let currentHTML = existingNote.getNote();
+        const currentHTML = existingNote.getNote();
         const parser = new DOMParser();
         const doc = parser.parseFromString(currentHTML, "text/html");
         const ul = doc.querySelector("ul");
@@ -2072,9 +1905,6 @@ export class ReplicationCheckerPlugin {
             (newItem as Zotero.Item & { libraryID: number }).libraryID = libraryID;
             newItem.setField("title", rep.title_r || "Untitled Replication");
             newItem.setField("date", rep.year_r ? rep.year_r.toString() : "");
-            if (doi_r) {
-              newItem.setField("DOI", doi_r);
-            }
             if (rep.url_r) {
               newItem.setField("url", rep.url_r);
             }
@@ -2106,6 +1936,9 @@ export class ReplicationCheckerPlugin {
             if (extraInfo) {
               newItem.setField("extra", extraInfo.trim());
             }
+
+            // After Extra: falls back to an "Extra" line for item types with no DOI field
+            ZoteroIntegration.setDOI(newItem, doi_r);
 
             // Fill any missing fields from BibTeX reference
             ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, rep.bibtex_ref);
@@ -2419,6 +2252,52 @@ export class ReplicationCheckerPlugin {
   }
 
   /**
+   * Library that "Add Original" should write the original into.
+   *
+   * Originals belong beside the replication that cites them, so this is the
+   * replication's own library whenever Zotero will accept writes there. Only a
+   * read-only group library forces the copy into Personal — previously *every*
+   * original landed in Personal, which scattered group-library work across two
+   * libraries and broke the linking below (#100).
+   */
+  private targetLibraryFor(item: Zotero.Item): number {
+    return this.isLibraryEditable(item.libraryID)
+      ? item.libraryID
+      : Zotero.Libraries.userLibraryID;
+  }
+
+  /**
+   * Relate a replication and its original to each other, in both directions.
+   *
+   * Zotero rejects relations that cross a library boundary, and saving an item
+   * that lives in a read-only group library throws. Both happen when the
+   * original had to go to Personal because the replication's library is
+   * read-only, so skip the link there instead of letting the exception abort
+   * the whole "Add Original" run (#100).
+   */
+  private async linkReplicationAndOriginal(
+    replication: Zotero.Item,
+    original: Zotero.Item,
+  ): Promise<void> {
+    if (replication.libraryID !== original.libraryID) {
+      Zotero.debug(
+        `[ReplicationChecker] Not relating ${replication.id} ↔ ${original.id}: ` +
+        `different libraries (${replication.libraryID} vs ${original.libraryID})`
+      );
+      return;
+    }
+    try {
+      replication.addRelatedItem(original);
+      original.addRelatedItem(replication);
+      await replication.saveTx();
+      await original.saveTx();
+      Zotero.debug(`[ReplicationChecker] Linked replication ${replication.id} ↔ original ${original.id}`);
+    } catch (error) {
+      Zotero.debug(`[ReplicationChecker] Could not relate ${replication.id} ↔ ${original.id}: ${error}`);
+    }
+  }
+
+  /**
    * Create a Zotero item from a RelatedStudy object
    * @param study The RelatedStudy from the API
    * @param libraryID The library to create the item in
@@ -2436,7 +2315,8 @@ export class ReplicationCheckerPlugin {
 
     newItem.setField("title", study.title || "Untitled");
     newItem.setField("date", study.year?.toString() || "");
-    newItem.setField("DOI", study.doi || "");
+    // Falls back to an "Extra" line for item types with no DOI field
+    ZoteroIntegration.setDOI(newItem, study.doi);
 
     // Safely set fields that may not exist for all item types
     const safeSetField = (field: string, value: any) => {
@@ -2570,9 +2450,6 @@ export class ReplicationCheckerPlugin {
 
     newItem.setField("title", replicationData.title_r || "Untitled Replication");
     newItem.setField("date", replicationData.year_r?.toString() || "");
-    if (replicationData.doi_r) {
-      newItem.setField("DOI", replicationData.doi_r);
-    }
     if (replicationData.url_r) {
       newItem.setField("url", replicationData.url_r);
     }
@@ -2598,6 +2475,9 @@ export class ReplicationCheckerPlugin {
     if (extraInfo) {
       newItem.setField("extra", extraInfo.trim());
     }
+
+    // After Extra: falls back to an "Extra" line for item types with no DOI field
+    ZoteroIntegration.setDOI(newItem, replicationData.doi_r);
 
     // Fill any missing fields from BibTeX reference
     ZoteroIntegration.fillMissingFieldsFromBibtex(newItem, replicationData.bibtex_ref);
@@ -2682,24 +2562,13 @@ export class ReplicationCheckerPlugin {
 
       // Get or create replication folder in Personal library (for replications)
       const replicationCollection = await getOrCreateCollection(personalLibraryID, REPLICATION_SPEC);
-      const folderName = replicationCollection.name;
 
       // Get or create collection for originals named "{LibraryName} [Read-Only]"
-      const originalsCollectionName = `${sourceLibraryName} [Read-Only]`;
-      let personalCollections = Zotero.Collections.getByLibrary(personalLibraryID, true);
-      let originalsCollection = personalCollections.find(
-        (c: any) => c.name === originalsCollectionName && !c.parentID
+      const originalsCollection = await getOrCreateChildCollection(
+        personalLibraryID,
+        `${sourceLibraryName}${READONLY_SUFFIX}`,
+        "[ReplicationChecker]",
       );
-
-      if (!originalsCollection) {
-        originalsCollection = new Zotero.Collection({
-          libraryID: personalLibraryID,
-          name: originalsCollectionName,
-        });
-        await originalsCollection.saveTx();
-        Zotero.debug(`[ReplicationChecker] Created "${originalsCollectionName}" collection in Personal library`);
-        personalCollections = Zotero.Collections.getByLibrary(personalLibraryID, true);
-      }
 
       // Show progress
       const progressWin = new Zotero.ProgressWindow();

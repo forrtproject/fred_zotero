@@ -24,9 +24,11 @@ import { getString } from "../utils/strings";
  *
  * VERSION HISTORY:
  *   v1 — Initial release: basic replication checking, tagging, notes.
- *   v2 — (next major release) Update ONBOARDING_VERSION to 2 and document here.
+ *   v2 — Collections nested under one "FLoRA" container (existing libraries are
+ *        migrated on first start); new "Your FLoRA Stats" screen covering the
+ *        per-library stats pane, the library picker and the Replication Atlas.
  */
-const ONBOARDING_VERSION = 1;
+const ONBOARDING_VERSION = 2;
 const ONBOARDING_PREF = "replication-checker.onboardingVersion";
 
 interface OnboardingScreen {
@@ -56,6 +58,10 @@ export class OnboardingManager {
       {
         title: getString("onboarding-context-title"),
         content: getString("onboarding-context-content"),
+      },
+      {
+        title: getString("onboarding-stats-title"),
+        content: getString("onboarding-stats-content"),
       },
       {
         title: getString("onboarding-scan-title"),
@@ -163,9 +169,11 @@ export class OnboardingManager {
         screens: this.screens,
         showScanPrompt: showScanPrompt,
         onComplete: (result: { completed: boolean; shouldScan?: boolean }) => {
-          if (result.completed) {
-            this.markOnboardingComplete();
-          }
+          // Recorded whether the user finished or skipped: the pref tracks that
+          // this version's onboarding has been *presented*, and skipping is a
+          // decision about it. Marking only on completion would re-open the
+          // dialog on every startup for anyone who dismissed it.
+          this.markOnboardingComplete();
           this.clearHighlights(parentWindow);
           onComplete(result);
         },

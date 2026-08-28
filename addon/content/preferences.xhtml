@@ -18,6 +18,11 @@
     type="string"
   />
   <preference
+    id="pref-rootFolderName"
+    name="extensions.zotero.replication-checker.rootFolderName"
+    type="string"
+  />
+  <preference
     id="pref-folderName"
     name="extensions.zotero.replication-checker.folderName"
     type="string"
@@ -114,6 +119,22 @@
 <!-- ── 3. FOLDER NAMES ───────────────────────────────────────────────────── -->
 <groupbox>
   <label>
+    <html:h2 id="pref-root-folder-title-label">FLoRA Container Collection</html:h2>
+  </label>
+  <html:p id="pref-root-folder-description-label" style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
+    Name of the top-level Zotero collection that holds all FLoRA collections below
+  </html:p>
+  <html:div style="display: flex; align-items: center; gap: 8px;">
+    <html:input id="pref-root-folder-name-input" type="text" preference="pref-rootFolderName"
+      style="flex: 1; padding: 4px 8px; font-size: 0.9em;" placeholder="FLoRA" />
+  </html:div>
+  <html:p id="pref-root-folder-hint-label" style="margin-top: 8px; font-size: 0.85em; color: #999;">
+    Every collection below is created inside this one. Changing this will rename the existing collection automatically. All items will remain in the same collections.
+  </html:p>
+</groupbox>
+
+<groupbox>
+  <label>
     <html:h2 id="pref-folder-title-label">Replication Folder Name</html:h2>
   </label>
   <html:p id="pref-folder-description-label" style="margin: 0 0 12px 0; font-size: 0.9em; color: #666;">
@@ -192,6 +213,13 @@
     Live counts from your Zotero library — updated automatically as items change
   </html:p>
 
+  <!-- Library picker: populated and revealed by initStatsUI() only when the
+       user has more than one library (group libraries). -->
+  <html:div id="stats-library-row" style="display: none; align-items: center; gap: 8px; margin-bottom: 10px;">
+    <html:label id="pref-stats-library-label" for="stats-library-select" style="font-size: 0.9em; color: #444;">Library:</html:label>
+    <html:select id="stats-library-select" style="flex: 1; padding: 3px 6px; font-size: 0.9em;"></html:select>
+  </html:div>
+
   <!-- Stats table: order matches user request -->
   <html:table id="stats-local-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em; margin-bottom: 12px;">
     <html:tbody>
@@ -248,15 +276,22 @@
     </html:tbody>
   </html:table>
 
-  <html:p id="stats-atlas-error" style="font-size: 0.85em; color: #c0392b; margin: 0 0 10px 0; display: none;"></html:p>
-
   <!-- Action buttons row -->
   <html:div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
     <html:button id="stats-atlas-btn" style="font-size: 0.85em;">Open in FLoRA Atlas ↗</html:button>
   </html:div>
 
-  <html:p style="margin-top: 10px; font-size: 0.8em; color: #aaa; line-height: 1.5;">
-    <html:strong>Open in FLoRA Atlas</html:strong> — opens the FLoRA Replication Atlas pre-loaded with your tracked original DOIs. For large libraries the DOIs are copied to clipboard instead — paste them into the Atlas search field.
+  <!-- Both notices sit below the button, where the eye lands after clicking it.
+       stats-atlas-error is transient and only used for failures that stop the
+       Atlas from opening at all. stats-atlas-warning is NOT timed: clicking the
+       button navigates to the Atlas, so a self-hiding message would be gone
+       before it could be read. It is refreshed on every stats load, so the
+       count of items that cannot be sent is visible without clicking first. -->
+  <html:p id="stats-atlas-error" style="font-size: 0.85em; color: #c0392b; margin: 10px 0 0 0; display: none;"></html:p>
+  <html:p id="stats-atlas-warning" style="font-size: 0.85em; color: #8a6d3b; margin: 10px 0 0 0; display: none;"></html:p>
+
+  <html:p id="pref-stats-atlas-hint-label" style="margin-top: 10px; font-size: 0.8em; color: #aaa; line-height: 1.5;">
+    <html:strong>Open in FLoRA Atlas</html:strong> — opens the FLoRA Replication Atlas pre-loaded with the DOIs of every tracked item in the selected library: originals, replications and reproductions. The Atlas sorts them into its own Original / Replication tabs, so its counts reflect how FLoRA classifies each DOI rather than how your library tags it. If the list is too long for a single web address the DOIs are copied to the clipboard instead — paste them into the Atlas search field.
   </html:p>
 </groupbox>
 
@@ -311,6 +346,9 @@ function localizePrefs() {
   if (clearBtn && s["pref-blacklist-clear"]) clearBtn.textContent = s["pref-blacklist-clear"];
 
   // Folder names
+  setText("pref-root-folder-title-label",                         "pref-root-folder-title");
+  setText("pref-root-folder-description-label",                   "pref-root-folder-description");
+  setText("pref-root-folder-hint-label",                          "pref-root-folder-hint");
   setText("pref-folder-title-label",                              "pref-folder-title");
   setText("pref-folder-description-label",                        "pref-folder-description");
   setText("pref-folder-hint-label",                               "pref-folder-hint");

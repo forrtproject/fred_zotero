@@ -216,7 +216,7 @@ onboarding-welcome-content =
     • Etiqueta itens automaticamente (ex. «Tem replicação», «É replicação»)
     • Oferece adicionar o estudo original quando é detetada uma replicação
     • Suporte para bibliotecas de grupo só de leitura — copia itens para a biblioteca pessoal
-    • Nomes de pastas configuráveis para replicações e reproduções
+    • Todas as coleções dentro de uma única coleção «FLoRA», com nomes configuráveis
     • Exclui replicações indesejadas de verificações futuras
     • Verificação automática: analisa novos itens automaticamente ou segundo um calendário
     • Privacidade garantida: os seus DOIs nunca são enviados ao servidor
@@ -248,10 +248,34 @@ onboarding-context-content =
     Clique com o botão direito nos itens de replicação → Excluir replicação
     • Impede que replicações indesejadas voltem a ser adicionadas
 
+    🗂️ Onde tudo fica:
+    Tudo o que a extensão cria fica dentro de uma única coleção «FLoRA»
+    • FLoRA Replications, FLoRA Reproductions
+    • FLoRA Originals linked to Replications / Reproductions
+
     ⚙️ Preferências:
     Editar → Configurações → Zotero Replication Checker
     • Frequência de verificação automática
     • Verificação automática de novos itens
+    • Nomes das coleções, incluindo o contentor «FLoRA»
+    • Estatísticas do FLoRA por biblioteca, com ligação para o Replication Atlas
+
+onboarding-stats-title = As suas estatísticas do FLoRA
+onboarding-stats-content =
+    📍 Localização: Editar → Configurações → Zotero Replication Checker
+
+    📊 Contagens em direto do que o FLoRA sabe sobre a sua biblioteca:
+    • Artigos com replicações / reproduções
+    • Artigos que são eles próprios replicações ou reproduções
+    • Contados por DOI único: o mesmo artigo guardado duas vezes conta uma vez
+
+    📚 Bibliotecas de grupo:
+    Se pertence a alguma, surge um seletor de biblioteca por cima da tabela — as estatísticas dizem respeito à biblioteca escolhida, não apenas à pessoal.
+
+    🌍 Abrir no FLoRA Atlas:
+    Abre o Replication Atlas pré-carregado com os DOI seguidos da biblioteca selecionada, para ver como as suas leituras se situam na literatura de replicação.
+
+    💡 Os itens sem um DOI utilizável não podem ser identificados e por isso ficam de fora — uma nota por baixo do botão indica quantos.
 
 onboarding-scan-title = Pretende analisar a sua biblioteca?
 onboarding-scan-content =
@@ -319,14 +343,24 @@ reproduction-checker-ban-success =
     }
 
 ## Reproduction Feature - Dialog
+replication-checker-dialog-title-studies = Estudos relacionados encontrados
+replication-checker-dialog-intro-studies =
+    Estudos encontrados para:
+    «{ $title }»
+replication-checker-dialog-question-studies = Pretende adicionar estas informações à sua biblioteca?
 reproduction-checker-dialog-title = Estudos de reprodução encontrados
-reproduction-checker-dialog-intro = Estudos de reprodução encontrados para:\n"{ $title }"
+reproduction-checker-dialog-intro =
+    Estudos de reprodução encontrados para:
+    "{ $title }"
 reproduction-checker-dialog-count =
     { $count ->
         [one] Encontrada 1 reprodução:
        *[other] Encontradas { $count } reproduções:
     }
-reproduction-checker-dialog-item = { $index }. { $title }\n({ $year })\n   Resultado: { $outcome }
+reproduction-checker-dialog-item =
+    { $index }. { $title }
+    ({ $year })
+       Resultado: { $outcome }
 reproduction-checker-dialog-more =
     { $count ->
         [one] ...e mais 1 reprodução

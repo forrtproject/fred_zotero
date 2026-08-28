@@ -12,11 +12,13 @@ import { createZToolkit } from "./utils/ztoolkit";
 import { getString } from "./utils/strings";
 import {
   TAG_IS_REPLICATION, TAG_IS_REPRODUCTION, itemHasTag,
-  TAG_HAS_REPLICATION, TAG_HAS_REPRODUCTION,
   TAG_HAS_BEEN_REPLICATED, TAG_HAS_BEEN_REPRODUCED,
   TAG_REPLICATION_MULTIPLE_ORIGINALS, TAG_REPRODUCTION_MULTIPLE_ORIGINALS,
   getTag,
 } from "./utils/tags";
+import { migrateCollectionsToRoot } from "./utils/collectionUtils";
+import { extractDOI } from "./utils/zoteroIntegration";
+import { normalizeDoi } from "./utils/doi";
 import {
   initThemeObserver,
   cleanupThemeObserver,
@@ -220,6 +222,9 @@ export async function onStartup() {
     // Expose addon globally for getString to access
     (Zotero as any).ReplicationChecker = addon;
 
+    // Move collections created by older versions into the "FLoRA" container
+    await migrateCollectionsToRoot();
+
     // Initialize the replication checker plugin
     await replicationChecker.init(rootURI);
 
@@ -240,15 +245,8 @@ export async function onStartup() {
     (Zotero as any).ReplicationChecker.initBlacklistUI = initBlacklistUI;
     (Zotero as any).ReplicationChecker.initStatsUI = initStatsUI;
 
-    // Register preference observer for auto-check frequency changes
-    Zotero.Prefs.registerObserver(
-      "replication-checker.autoCheckFrequency",
-      () => {
-        Zotero.debug("[ReplicationChecker] Auto-check frequency preference changed, restarting timer");
-        // Restart the auto-check with new frequency
-        (replicationChecker as any).startAutoCheck();
-      }
-    );
+    // Note: the auto-check frequency observer is registered inside
+    // replicationChecker.init(), which also unregisters it by symbol on shutdown.
 
     // Register preference pane with theme-aware icon
     Zotero.PreferencePanes.register({
@@ -428,22 +426,35 @@ export async function onMainWindowLoad(win: _ZoteroTypes.MainWindow) {
           firstRunDone = false; // Assume first run if preference doesn't exist
         }
 
-        if (!firstRunDone && onboardingManager.shouldShowOnboarding()) {
-          Zotero.debug("[ReplicationChecker] Showing onboarding with scan prompt");
+        // shouldShowOnboarding() is the only gate: it already covers both a
+        // fresh install (pref absent) and an existing user whose stored version
+        // is behind ONBOARDING_VERSION. Requiring !firstRunDone as well would
+        // short-circuit for every existing user, so bumping the version would
+        // reach new installs only — which is the opposite of why it is bumped.
+        const isFirstRun = !firstRunDone;
+
+        if (onboardingManager.shouldShowOnboarding()) {
+          Zotero.debug(
+            `[ReplicationChecker] Showing onboarding (firstRun=${isFirstRun})`
+          );
 
           // Mark as shown before showing onboarding
           Zotero.Prefs.set("replication-checker.firstRunDone", true);
 
-          // Show onboarding with scan prompt on last page
-          const result = await onboardingManager.showOnboarding(true);
+          // The scan prompt is a first-install concern: someone updating has a
+          // library that has already been checked, so re-offering a full scan
+          // as the closing step would be noise.
+          const result = await onboardingManager.showOnboarding(isFirstRun);
 
           if (result.completed && result.shouldScan) {
             Zotero.debug("[ReplicationChecker] User accepted first-run scan from onboarding");
             replicationChecker.checkEntireLibrary();
           } else if (result.completed) {
             Zotero.debug("[ReplicationChecker] User completed onboarding but declined scan");
-          } else {
-            // User skipped onboarding - show separate first scan prompt
+          } else if (isFirstRun) {
+            // User skipped onboarding - show separate first scan prompt.
+            // First install only: prompting an existing user to rescan a library
+            // the plugin has already been through is just an interruption.
             Zotero.debug("[ReplicationChecker] User skipped onboarding, showing separate first scan prompt");
             const win = Zotero.getMainWindow();
             if (win) {
@@ -791,16 +802,6 @@ export async function onShutdown() {
       Zotero.debug("[ReplicationChecker] Error cleaning up menu items: " + e);
     }
 
-    // Unregister preference observer
-    try {
-      Zotero.Prefs.unregisterObserver(
-        "replication-checker.autoCheckFrequency" as any
-      );
-    } catch (e) {
-      // Observer might not be registered
-      Zotero.debug("[ReplicationChecker] Could not unregister preference observer: " + e);
-    }
-
     // Note: We intentionally do NOT clear preferences on shutdown.
     // Zotero calls onShutdown during auto-updates before reloading the new version,
     // so clearing prefs here would reset user settings and re-trigger onboarding.
@@ -822,6 +823,12 @@ export async function onShutdown() {
  */
 export async function initBlacklistUI(doc: Document) {
   Zotero.debug("[ReplicationChecker Prefs] initBlacklistUI called");
+
+  // Both preferences.xhtml's inline script and setupPreferencePaneObserver call
+  // this; without the guard each pane open would stack a second set of listeners
+  // and preference observers on the same document.
+  if ((doc as any)._rcBlacklistUIReady) return;
+  (doc as any)._rcBlacklistUIReady = true;
 
   let selectedIdentifier: string | null = null;
   let prefObserverSymbol: symbol | null = null;
@@ -1052,31 +1059,178 @@ export async function initBlacklistUI(doc: Document) {
 export async function initStatsUI(doc: Document): Promise<void> {
   Zotero.debug("[ReplicationChecker Prefs] initStatsUI called");
 
+  // See initBlacklistUI: guards against the pane being initialised twice, which
+  // would duplicate the library picker options, the Atlas click handler and the
+  // item notifier.
+  if ((doc as any)._rcStatsUIReady) return;
+  (doc as any)._rcStatsUIReady = true;
+
   let statsNotifierID: string | null = null;
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  async function countByTag(tag: string): Promise<number> {
-    const libraryID = Zotero.Libraries.userLibraryID;
-    const search = new Zotero.Search();
-    search.addCondition("libraryID", "is", String(libraryID));
-    search.addCondition("tag", "is", tag);
-    const ids = await search.search();
-    return ids.length;
+  /**
+   * Library the stats and the Atlas button apply to. Defaults to the personal
+   * library; the picker below lets users switch to any group library.
+   */
+  function selectedLibraryID(): number {
+    const select = doc.getElementById("stats-library-select") as HTMLSelectElement | null;
+    const id = select ? parseInt(select.value, 10) : NaN;
+    return Number.isNaN(id) ? Zotero.Libraries.userLibraryID : id;
   }
 
-  async function countAllItems(): Promise<number> {
-    const libraryID = Zotero.Libraries.userLibraryID;
-    const search = new Zotero.Search();
-    search.addCondition("libraryID", "is", String(libraryID));
+  // Scope comes from the Search constructor, not a "libraryID" condition: a new
+  // Zotero.Search() defaults to the personal library, so a condition naming a
+  // group library would contradict it and always return nothing (#100).
+  async function searchByTag(tag: string, libraryID: number): Promise<number[]> {
+    const search = new Zotero.Search({ libraryID });
+    search.addCondition("tag", "is", tag);
+    // Same filter countAllItems() uses. The plugin only ever tags top-level
+    // items, but without this a tag that reached a note or attachment would
+    // inflate the tag rows while leaving the total untouched.
+    search.addCondition("noChildren", "true", "1");
+    return search.search();
+  }
+
+  async function countAllItems(libraryID: number): Promise<number> {
+    const search = new Zotero.Search({ libraryID });
     search.addCondition("noChildren", "true", "1");
     const ids = await search.search();
     return ids.length;
   }
 
+  /** Unique item IDs carrying any of the given tags. */
+  async function idsForTags(libraryID: number, tags: string[]): Promise<number[]> {
+    const results = await Promise.all(tags.map((tag) => searchByTag(tag, libraryID)));
+    return [...new Set(results.flat())];
+  }
+
+  /**
+   * Every item the plugin tracks — originals *and* the replication/reproduction
+   * items themselves. The Atlas classifies each DOI it receives, so sending only
+   * originals left its "Replication" tab empty even for libraries full of them.
+   */
+  function allTrackedIDs(libraryID: number): Promise<number[]> {
+    return idsForTags(libraryID, [
+      getTag(TAG_HAS_BEEN_REPLICATED),
+      getTag(TAG_HAS_BEEN_REPRODUCED),
+      getTag(TAG_IS_REPLICATION),
+      getTag(TAG_IS_REPRODUCTION),
+    ]);
+  }
+
   function setText(id: string, value: string): void {
     const el = doc.getElementById(id);
     if (el) el.textContent = value;
+  }
+
+  /**
+   * Normalised DOI for each item id, resolved once and shared by every count
+   * below so the table and the Atlas button can never disagree.
+   *
+   * DOIs are resolved the way every other code path does: the Extra field is a
+   * valid fallback location, and normalisation strips the doi.org/ prefixes and
+   * casing that would otherwise make two spellings of one article look like two
+   * articles. `null` marks an item the plugin tracks but cannot identify by
+   * DOI — reported by the note under the table rather than silently dropped.
+   */
+  async function resolveDOIs(ids: number[]): Promise<Map<number, string | null>> {
+    const byID = new Map<number, string | null>();
+    for (const id of ids) {
+      const item = await Zotero.Items.getAsync(id);
+      byID.set(id, item ? normalizeDoi(extractDOI(item)) : null);
+    }
+    return byID;
+  }
+
+  /**
+   * How many distinct articles `ids` represents.
+   *
+   * The table is labelled "Articles", and an article is identified by its DOI,
+   * so the same paper saved twice counts once. Items with no DOI cannot be
+   * identified and are not counted here; `countWithoutDOI` reports them.
+   */
+  function countUniqueDOIs(ids: number[], byID: Map<number, string | null>): number {
+    const seen = new Set<string>();
+    for (const id of ids) {
+      const doi = byID.get(id);
+      if (doi) seen.add(doi);
+    }
+    return seen.size;
+  }
+
+  function countWithoutDOI(ids: number[], byID: Map<number, string | null>): number {
+    return ids.reduce((n, id) => (byID.get(id) ? n : n + 1), 0);
+  }
+
+  /**
+   * The DOIs the Atlas can actually be given, and what had to be dropped.
+   * Deduplicated, because two library items can carry the same DOI.
+   */
+  async function collectTrackedDOIs(libraryID: number): Promise<{
+    dois: string[];
+    withoutDoi: number;
+    duplicates: number;
+  }> {
+    const ids = await allTrackedIDs(libraryID);
+    const byID = await resolveDOIs(ids);
+
+    const seen = new Set<string>();
+    for (const id of ids) {
+      const doi = byID.get(id);
+      if (doi) seen.add(doi);
+    }
+    const dois = [...seen];
+    const withoutDoi = countWithoutDOI(ids, byID);
+
+    return { dois, withoutDoi, duplicates: ids.length - withoutDoi - dois.length };
+  }
+
+  /**
+   * Standing note naming how many tracked items carry no usable DOI. One line
+   * covers both consequences — such items are excluded from the counts and are
+   * not sent to the Atlas — because it is one cause, and two separate notices
+   * sitting together would just read as the same sentence twice.
+   *
+   * Deliberately untimed; see the comment on the element in preferences.xhtml.
+   */
+  function renderAtlasWarning(withoutDoi: number): void {
+    const el = doc.getElementById("stats-atlas-warning") as HTMLElement | null;
+    if (!el) return;
+    if (withoutDoi > 0) {
+      el.textContent = getString("pref-stats-no-doi-note", { count: withoutDoi });
+      el.style.display = "block";
+    } else {
+      el.style.display = "none";
+    }
+  }
+
+  /**
+   * Fill the library picker. Hidden entirely when the user has only the
+   * personal library, so nothing changes for single-library users (#100).
+   */
+  function initLibraryPicker(): void {
+    const select = doc.getElementById("stats-library-select") as HTMLSelectElement | null;
+    const row = doc.getElementById("stats-library-row") as HTMLElement | null;
+    if (!select || !row) return;
+
+    const libraries = Zotero.Libraries.getAll()
+      .filter((lib: any) => lib.libraryType !== "feed");
+    if (libraries.length < 2) return;
+
+    const label = doc.getElementById("pref-stats-library-label");
+    if (label) label.textContent = getString("pref-stats-library");
+
+    for (const lib of libraries) {
+      const option = doc.createElement("option");
+      option.setAttribute("value", String(lib.libraryID));
+      option.textContent = lib.name;
+      select.appendChild(option);
+    }
+    select.value = String(Zotero.Libraries.userLibraryID);
+    row.style.display = "flex";
+
+    select.addEventListener("change", () => { loadStatsUI(); });
   }
 
   // ── load stats from Zotero library ───────────────────────────────────────
@@ -1089,24 +1243,34 @@ export async function initStatsUI(doc: Document): Promise<void> {
         "stat-is-replication", "stat-has-reproduction", "stat-is-reproduction",
       ]) setText(id, "…");
 
-      const [total, hasRep, isRep, hasRepro, isRepro] = await Promise.all([
-        countAllItems(),
-        countByTag(getTag(TAG_HAS_BEEN_REPLICATED)),
-        countByTag(getTag(TAG_IS_REPLICATION)),
-        countByTag(getTag(TAG_HAS_BEEN_REPRODUCED)),
-        countByTag(getTag(TAG_IS_REPRODUCTION)),
+      const libraryID = selectedLibraryID();
+
+      const [total, hasRepIDs, isRepIDs, hasReproIDs, isReproIDs] = await Promise.all([
+        countAllItems(libraryID),
+        searchByTag(getTag(TAG_HAS_BEEN_REPLICATED), libraryID),
+        searchByTag(getTag(TAG_IS_REPLICATION), libraryID),
+        searchByTag(getTag(TAG_HAS_BEEN_REPRODUCED), libraryID),
+        searchByTag(getTag(TAG_IS_REPRODUCTION), libraryID),
       ]);
-      // Original articles tracked = unique items tagged with either "Has Been Replicated"
-      // or "Has Been Reproduced" (deduplicated so items with both tags count once)
-      const libraryID = Zotero.Libraries.userLibraryID;
-      const repSearch = new Zotero.Search();
-      repSearch.addCondition("libraryID", "is", String(libraryID));
-      repSearch.addCondition("tag", "is", getTag(TAG_HAS_BEEN_REPLICATED));
-      const reproSearch = new Zotero.Search();
-      reproSearch.addCondition("libraryID", "is", String(libraryID));
-      reproSearch.addCondition("tag", "is", getTag(TAG_HAS_BEEN_REPRODUCED));
-      const [repIDs, reproIDs] = await Promise.all([repSearch.search(), reproSearch.search()]);
-      const originals = new Set([...repIDs, ...reproIDs]).size;
+
+      // Original articles tracked = items tagged "Has Been Replicated" or
+      // "Has Been Reproduced"; an item carrying both must still count once.
+      const originalIDs = [...new Set([...hasRepIDs, ...hasReproIDs])];
+      const trackedIDs = [...new Set([...originalIDs, ...isRepIDs, ...isReproIDs])];
+
+      // One resolution pass for every tracked item, reused by all five counts.
+      const doiByID = await resolveDOIs(trackedIDs);
+
+      // Counted by distinct DOI, not by item: these rows are labelled
+      // "Articles", and the Atlas button sends distinct DOIs too, so counting
+      // items here would have made the two disagree whenever a library held the
+      // same paper twice. Only "Total library items" stays an item count.
+      const originals = countUniqueDOIs(originalIDs, doiByID);
+      const hasRep    = countUniqueDOIs(hasRepIDs, doiByID);
+      const isRep     = countUniqueDOIs(isRepIDs, doiByID);
+      const hasRepro  = countUniqueDOIs(hasReproIDs, doiByID);
+      const isRepro   = countUniqueDOIs(isReproIDs, doiByID);
+      const withoutDoi = countWithoutDOI(trackedIDs, doiByID);
 
       setText("stat-total",            total.toLocaleString());
       setText("stat-originals",        String(originals));
@@ -1115,22 +1279,45 @@ export async function initStatsUI(doc: Document): Promise<void> {
       setText("stat-has-reproduction", String(hasRepro));
       setText("stat-is-reproduction",  String(isRepro));
 
-      Zotero.debug(`[ReplicationChecker Prefs] Stats: total=${total} originals=${originals} hasRep=${hasRep} isRep=${isRep} hasRepro=${hasRepro} isRepro=${isRepro}`);
+      Zotero.debug(
+        `[ReplicationChecker Prefs] Stats (unique DOIs): total=${total} ` +
+        `originals=${originals} hasRep=${hasRep} isRep=${isRep} ` +
+        `hasRepro=${hasRepro} isRepro=${isRepro}; ` +
+        `${trackedIDs.length} tracked items, ${withoutDoi} without a DOI`
+      );
+
+      // Nothing is dropped silently: the note names the items excluded above.
+      renderAtlasWarning(withoutDoi);
     } catch (error) {
       Zotero.debug("[ReplicationChecker Prefs] Error loading stats: " + error);
     }
   }
 
   // ── Open FLoRA Replication Atlas ─────────────────────────────────────────
-  // Passes tracked original DOIs via URL (?dois=doi1,doi2,...).
-  // URLs above 4000 chars may hit proxy limits, so fall back to clipboard
-  // for large libraries and open the Atlas homepage instead.
+  // Tracked original DOIs travel in the query string (?dois=doi1,doi2,...).
+  //
+  // The Atlas is served from GitHub Pages, whose edge (Fastly) answers 414 as
+  // soon as the request target — path + query, excluding scheme and host —
+  // exceeds 8192 bytes. Measured against forrt.org on 2026-07-28:
+  // 8192 bytes → 200, 8193 bytes → 414. MAX_REQUEST_TARGET keeps a margin below
+  // that for corporate proxies with tighter limits.
+  //
+  // Anything longer cannot be delivered by URL at all: the Atlas reads its
+  // input from query parameters only, so a hash fragment (never sent to a
+  // server, hence unlimited) or a POST would need a change on the Atlas side.
+  // Until then, oversized lists go to the clipboard.
+
+  const ATLAS_PATH = "/flora-replication-atlas/";
+  const ATLAS_BASE = `https://forrt.org${ATLAS_PATH}`;
+  const MAX_REQUEST_TARGET = 8000;
 
   async function openAtlas(): Promise<void> {
-    const ATLAS_BASE = "https://forrt.org/flora-replication-atlas/";
-    const URL_LIMIT = 4000;
     const errorEl = doc.getElementById("stats-atlas-error");
 
+    // Only for failures that stop the Atlas from opening: the user stays on the
+    // pane to read them, so hiding them again is safe. The "items with no usable
+    // DOI" warning is handled by renderAtlasWarning() instead, which does not
+    // time out, because that click navigates away.
     const showError = (msg: string) => {
       if (!errorEl) return;
       errorEl.textContent = msg;
@@ -1139,35 +1326,29 @@ export async function initStatsUI(doc: Document): Promise<void> {
     };
 
     try {
-      const libraryID = Zotero.Libraries.userLibraryID;
-      const repSearch = new Zotero.Search();
-      repSearch.addCondition("libraryID", "is", String(libraryID));
-      repSearch.addCondition("tag", "is", getTag(TAG_HAS_BEEN_REPLICATED));
-      const reproSearch = new Zotero.Search();
-      reproSearch.addCondition("libraryID", "is", String(libraryID));
-      reproSearch.addCondition("tag", "is", getTag(TAG_HAS_BEEN_REPRODUCED));
-      const [repIDs, reproIDs] = await Promise.all([repSearch.search(), reproSearch.search()]);
-      const ids = [...new Set([...repIDs, ...reproIDs])];
+      const { dois, withoutDoi, duplicates } = await collectTrackedDOIs(selectedLibraryID());
 
-      const dois: string[] = [];
-      for (const id of ids) {
-        const item = await Zotero.Items.getAsync(id);
-        if (!item) continue;
-        const doi = (item.getField("DOI") as string | undefined)?.trim();
-        if (doi) dois.push(doi);
-      }
+      // Refresh the standing warning so it matches this click exactly.
+      renderAtlasWarning(withoutDoi);
 
       if (dois.length === 0) {
-        showError("No tracked originals found. Run a replication check first.");
+        showError(getString("pref-stats-no-originals"));
         return;
       }
 
-      const urlWithDOIs = `${ATLAS_BASE}?dois=${dois.join(",")}`;
+      // Percent-encode each DOI so characters that are legal in a DOI but not in
+      // a URL (#, spaces, <, >, &) can't truncate or corrupt the query. "/" is
+      // left as-is — it is legal inside a query string, and keeping it verbatim
+      // means ordinary DOIs produce exactly the URL they always have.
+      const query = dois
+        .map((doi) => encodeURIComponent(doi).replace(/%2F/gi, "/"))
+        .join(",");
+      const requestTarget = `${ATLAS_PATH}?dois=${query}`;
 
-      if (urlWithDOIs.length <= URL_LIMIT) {
-        Zotero.launchURL(urlWithDOIs);
+      if (requestTarget.length <= MAX_REQUEST_TARGET) {
+        Zotero.launchURL(`https://forrt.org${requestTarget}`);
       } else {
-        // Too many DOIs — copy as comma-separated and open the Atlas homepage
+        // Too many DOIs for one URL — copy the raw list and open the Atlas homepage
         const clipHelper = (Components.classes as any)[
           "@mozilla.org/widget/clipboardhelper;1"
         ].getService((Components.interfaces as any).nsIClipboardHelper);
@@ -1175,9 +1356,10 @@ export async function initStatsUI(doc: Document): Promise<void> {
 
         const progressWin = new Zotero.ProgressWindow();
         progressWin.changeHeadline("FLoRA Replication Atlas");
-        progressWin.addLines(
-          `${dois.length} DOIs copied — paste into the Atlas DOI search field`,
-          ""
+        // addDescription(), not addLines() — see addProgressLine() in
+        // replicationChecker.ts: an empty icon renders as a broken-image box.
+        progressWin.addDescription(
+          getString("pref-stats-atlas-clipboard", { count: dois.length })
         );
         progressWin.show();
         progressWin.startCloseTimer(5000);
@@ -1185,13 +1367,19 @@ export async function initStatsUI(doc: Document): Promise<void> {
         Zotero.launchURL(ATLAS_BASE);
       }
 
-      Zotero.debug(`[ReplicationChecker Prefs] Opening Atlas with ${dois.length} DOIs`);
+      Zotero.debug(
+        `[ReplicationChecker Prefs] Opening Atlas: ${dois.length} unique DOIs ` +
+        `(${withoutDoi} without a usable DOI, ${duplicates} duplicate DOIs), ` +
+        `request target ${requestTarget.length}/${MAX_REQUEST_TARGET} bytes`
+      );
     } catch (error) {
       Zotero.debug("[ReplicationChecker Prefs] Error opening Atlas: " + error);
     }
   }
 
   // ── Wire up buttons ───────────────────────────────────────────────────────
+
+  initLibraryPicker();
 
   const atlasBtn = doc.getElementById("stats-atlas-btn");
   if (atlasBtn) atlasBtn.addEventListener("click", () => { openAtlas(); });

@@ -10,6 +10,9 @@ declare namespace _ZoteroTypes {
       "autoCheckFrequency": string;
       "autoCheckNewItems": boolean;
       "blacklist": string;
+      "rootFolderName": string;
+      "rootCollectionIDs": string;
+      "collectionStructureVersion": number;
       "folderName": string;
       "reproductionFolderName": string;
       "collectionIDs": string;

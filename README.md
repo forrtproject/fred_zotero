@@ -24,8 +24,9 @@ This plugin was developed as a [FORRT](https://forrt.org/) project to build a wo
 - 📖 **Read-only library support**: Automatically detects read-only group libraries and offers to copy originals and replications to your Personal library
 - 🏷️ **Automatic tagging**: Adds contextual tags including "Has Replication", "Is Replication", outcome tags, and "Original present in Read-Only Library"
 - 📝 **Detailed notes**: Creates child notes with replication/reproduction details (title, authors, journal, outcome, DOI)
-- 🗂️ **Configurable folders**: Customize the collection names for replications and reproductions in Preferences
+- 🗂️ **One tidy container**: Every collection the plugin creates lives inside a single top-level "FLoRA" collection; all names are configurable in Preferences
 - 🔗 **Smart organization**: Creates separate collections for originals from read-only libraries and their replications
+- 📊 **Per-library stats**: The Preferences pane shows live FLoRA counts for your personal library or any group library you pick, and opens the Replication Atlas pre-loaded with that library's tracked DOIs
 - 🔄 **Bidirectional linking**: Automatically links original studies with their replications as related items
 - 🚫 **Blacklist management**: Ban unwanted replications from being re-added during future checks
 - ⚡ **Auto-check**: Checks newly added items automatically; scheduled checks (daily/weekly/monthly) also available
@@ -66,6 +67,26 @@ Zotero version 7 or later. Guidance on installation and updating for Zotero is a
 
 ## Usage
 
+### Collection layout
+
+All collections the plugin creates are nested inside one container so they do not
+clutter the top level of your library:
+
+```
+FLoRA
+├── FLoRA Replications
+├── FLoRA Reproductions
+├── FLoRA Originals linked to Replications
+├── FLoRA Originals linked to Reproductions
+└── {LibraryName} [Read-Only]        (one per read-only group library)
+```
+
+Libraries organised by earlier versions are migrated automatically the first time
+the updated plugin starts — collections and their items are moved, never recreated.
+Every name, including the container, can be changed under
+**Edit → Settings → Replication Checker**; renaming a collection directly in Zotero
+is also respected.
+
 ### Check Current Library or Group Libraries
 
 1. Go to **Tools → Check Current Library for Replications**
@@ -77,7 +98,7 @@ The command scans whichever library is currently selected in Zotero (personal, g
 **For editable libraries:**
 
 - Original items get "Has Replication" tag and a replication note
-- Replication items are added to "Replication folder" collection
+- Replication items are added to "FLoRA Replications" collection
 - Items are automatically linked as related items
 
 **For read-only group libraries:**
@@ -86,7 +107,7 @@ The command scans whichever library is currently selected in Zotero (personal, g
 - Shows a confirmation dialog with the count of items with replications
 - If you accept:
   - Original items are copied to a new collection named `{LibraryName} [Read-Only]` in your Personal library
-  - Replication items are copied to "Replication folder" in your Personal library
+  - Replication items are copied to "FLoRA Replications" in your Personal library
   - Both originals and replications get tagged with "Original present in Read-Only Library"
   - All items are linked bidirectionally and replication notes are added
 
@@ -128,7 +149,7 @@ Sometimes you may want to prevent specific replications from being re-added to y
 
 - Banned replications will never be re-added to your library during future checks
 - The replication note on the original article still shows ALL replications (including banned ones)
-- Only the automatic addition to the "Replication folder" is prevented
+- Only the automatic addition to the "FLoRA Replications" is prevented
 - Blacklist is stored locally in Zotero preferences
 
 ### Preferences
@@ -178,7 +199,7 @@ When a replication is found:
   - DOI (clickable link)
   - Outcome (e.g., "successful", "failed", "mixed")
 - **Collections**:
-  - Replication items added to "Replication folder"
+  - Replication items added to "FLoRA Replications"
 - **Related items**: Bidirectional links between originals and replications
 
 **For read-only libraries:**
@@ -193,7 +214,7 @@ When a replication is found:
   - "Original present in Read-Only Library"
 - **Collections**:
   - Original items added to `{LibraryName} [Read-Only]` collection in Personal library
-  - Replication items added to "Replication folder" in Personal library
+  - Replication items added to "FLoRA Replications" in Personal library
 - **Note**: Same replication note structure as editable libraries
 - **Related items**: Bidirectional links maintained
 

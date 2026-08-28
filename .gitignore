@@ -29,6 +29,7 @@ $RECYCLE.BIN/
 # Editor files
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *.swn

@@ -55,6 +55,11 @@ export const strings = {
   "replication-checker-dialog-item": "{ $index }. { $title }\n({ $year })\n   Outcome: { $outcome }",
   "replication-checker-dialog-more": "...and { $count } more replication(s)",
   "replication-checker-dialog-question": "Would you like to add replication information?",
+  // Used only when an item has replications *and* reproductions; the
+  // single-kind cases reuse the existing replication-/reproduction- strings.
+  "replication-checker-dialog-title-studies": "Related Studies Found",
+  "replication-checker-dialog-intro-studies": "Studies found for:\n\"{ $title }\"",
+  "replication-checker-dialog-question-studies": "Would you like to add this information to your library?",
   "replication-checker-dialog-progress-title": "Replication Information Added",
   "replication-checker-dialog-progress-line": "Added replication information to \"{ $title }\"",
   "replication-checker-dialog-is-replication-title": "Original Study Found",
@@ -126,6 +131,17 @@ export const strings = {
   "reproduction-checker-progress-reproductions-found": "Found { $count } item(s) with reproductions",
 
   // Reproduction Notes
+  // English fallbacks for the reproduction dialog. The FTL files have carried
+  // these in every locale for a while; strings.ts had not, so getString() would
+  // have returned the raw key had a locale failed to load.
+  "reproduction-checker-dialog-title": "Reproduction Studies Found",
+  "reproduction-checker-dialog-intro": "Reproduction studies found for:\n\"{ $title }\"",
+  "reproduction-checker-dialog-count": "{ $count -> [one] Found 1 reproduction: *[other] Found { $count } reproductions: }",
+  "reproduction-checker-dialog-item": "{ $index }. { $title }\n({ $year })\n   Outcome: { $outcome }",
+  "reproduction-checker-dialog-more": "{ $count -> [one] ...and 1 more reproduction *[other] ...and { $count } more reproductions }",
+  "reproduction-checker-dialog-question": "Would you like to add reproduction information?",
+  "reproduction-checker-dialog-progress-line": "Added reproduction information to \"{ $title }\"",
+
   "reproduction-checker-note-title": "Reproductions Found",
   "reproduction-checker-note-warning": "This note is automatically generated. If you edit it, a new note will be created on the next check and this version will be kept as-is.",
   "reproduction-checker-note-intro": "This study has been reproduced:",
@@ -150,7 +166,10 @@ export const strings = {
   "onboarding-tools-content": "📍 Location: Tools → Check Current Library for Replications\n\n🔍 What it does:\n• Scans all items with DOIs\n• Queries FLoRA database\n• Creates notes with details\n• Tags items by outcome\n\n💡 Tip: Takes a few minutes depending on library size.",
 
   "onboarding-context-title": "Check Collections and Items",
-  "onboarding-context-content": "📚 For Collections:\nRight-click collection → Check for Replications\n\n📄 For Individual Items:\nRight-click items → Check for Replications\n\n🚫 Ban Replications:\nRight-click replication items → Ban Replication\n• Prevents unwanted replications from being re-added\n\n⚙️ Preferences:\nEdit → Settings → Replication Checker\n• Auto-check frequency\n• Auto-check new items",
+  "onboarding-context-content": "📚 For Collections:\nRight-click collection → Check for Replications\n\n📄 For Individual Items:\nRight-click items → Check for Replications\n\n🚫 Ban Replications:\nRight-click replication items → Ban Replication\n• Prevents unwanted replications from being re-added\n\n🗂️ Where things go:\nEverything the plugin creates lives inside one \"FLoRA\" collection\n• FLoRA Replications, FLoRA Reproductions\n• FLoRA Originals linked to Replications / Reproductions\n\n⚙️ Preferences:\nEdit → Settings → Replication Checker\n• Auto-check frequency\n• Auto-check new items\n• Collection names, including the \"FLoRA\" container\n• FLoRA stats per library, with a link to the Replication Atlas",
+
+  "onboarding-stats-title": "Your FLoRA Stats",
+  "onboarding-stats-content": "📍 Location: Edit → Settings → Replication Checker\n\n📊 Live counts of what FLoRA knows about your library:\n• Articles with replications / reproductions\n• Articles that are themselves replications or reproductions\n• Counted by unique DOI, so the same paper saved twice counts once\n\n📚 Group libraries:\nIf you belong to any, a Library picker appears above the table — stats are shown for whichever library you select, not just your personal one.\n\n🌍 Open in FLoRA Atlas:\nOpens the Replication Atlas pre-loaded with the tracked DOIs from the selected library, to see how your reading sits in the wider replication literature.\n\n💡 Items without a usable DOI can't be identified, so they're excluded — a note below the button says how many.",
 
   "onboarding-scan-title": "Ready to Scan Your Library?",
   "onboarding-scan-content": "Would you like to scan your library for replications now?\n\n• Click \"Yes\" to start scanning\n  (this may take a few minutes)\n\n• Click \"No\" to skip - you can always scan later from Tools menu\n\n💡 Access this guide anytime:\nHelp → Replication Checker User Guide",
@@ -165,6 +184,9 @@ export const strings = {
   "pref-stats-no-originals": "No tracked originals found in your library. Run a replication check first.",
   "pref-stats-open-atlas": "Open in FLoRA Atlas ↗",
   "pref-stats-view-flora": "View FLoRA Database →",
+  "pref-stats-library": "Library:",
+  "pref-stats-no-doi-note": "{ $count -> [one] 1 tracked item has no usable DOI — it is not counted above and is not sent to the Atlas *[other] { $count } tracked items have no usable DOI — they are not counted above and are not sent to the Atlas }",
+  "pref-stats-atlas-clipboard": "{ $count -> [one] 1 DOI copied — paste it into the Atlas DOI search field *[other] { $count } DOIs copied — paste them into the Atlas DOI search field }",
 
   // Preference Pane
   "pref-autocheck-title": "Auto-Check Library for Replications",
@@ -176,6 +198,9 @@ export const strings = {
   "pref-autocheck-new-items": "Automatically check newly added library items (recommended)",
   "pref-autocheck-new-items-hint": "Disable this option if you prefer to run all replication checks manually.",
   "pref-autocheck-note": "Auto-check runs in the background when Zotero is open. You can still manually check using the Tools menu.",
+  "pref-root-folder-title": "FLoRA Container Collection",
+  "pref-root-folder-description": "Name of the top-level Zotero collection that holds all FLoRA collections below",
+  "pref-root-folder-hint": "Every collection below is created inside this one. Changing this will rename the existing collection automatically. All items will remain in the same collections.",
   "pref-folder-title": "Replication Folder Name",
   "pref-folder-description": "Name of the Zotero collection where replication items are stored",
   "pref-folder-hint": "Changing this will create a new collection for future checks. Existing items will remain in the old collection.",

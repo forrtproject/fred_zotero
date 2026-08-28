@@ -3,10 +3,13 @@
 </p>
 
 <p align="center">
-  <!-- <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/total?label=Total%20Downloads&style=flat-square" alt="Total Downloads"></a>
-  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/latest/total?label=Latest%20Release%20Downloads&style=flat-square" alt="Latest Release Downloads"></a> -->
-  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://badgen.net/github/assets-dl/forrtproject/flora-zotero?label=Total+Downloads" alt="Total Downloads"></a>
-  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://badgen.net/github/assets-dl/forrtproject/flora-zotero/latest?label=Latest+Release+Downloads" alt="Latest Release Downloads"></a>
+  <!-- Counts the .xpi asset only, so update.json fetches are not mixed in.
+       Zotero downloads the same asset when it auto-updates, so these figures
+       cover manual installs and auto-updates together. Badgen was used here
+       previously but has no "latest release" route: it read "latest" as a tag
+       name and rendered GitHub's 404 as the badge value. -->
+  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/replication-checker-for-zotero.xpi?label=Plugin%20Downloads&style=flat-square&color=brightgreen" alt="Plugin Downloads"></a>
+  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/latest/replication-checker-for-zotero.xpi?label=Latest%20Release&style=flat-square&color=blue" alt="Latest Release Downloads"></a>
 
 </p>
 

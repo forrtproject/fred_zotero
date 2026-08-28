@@ -3,13 +3,18 @@
 </p>
 
 <p align="center">
-  <!-- Counts the .xpi asset only, so update.json fetches are not mixed in.
-       Zotero downloads the same asset when it auto-updates, so these figures
-       cover manual installs and auto-updates together. Badgen was used here
-       previously but has no "latest release" route: it read "latest" as a tag
-       name and rendered GitHub's 404 as the badge value. -->
-  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/replication-checker-for-zotero.xpi?label=Plugin%20Downloads&style=flat-square&color=brightgreen" alt="Plugin Downloads"></a>
-  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/latest/replication-checker-for-zotero.xpi?label=Latest%20Release&style=flat-square&color=blue" alt="Latest Release Downloads"></a>
+  <!-- Zotero downloads the same release asset when it auto-updates, so these
+       cover manual installs and auto-updates together.
+
+       The /total route is used rather than filtering by asset name: shields
+       hard-appends "[filename]" to the value whenever an asset filter is given,
+       and no parameter suppresses it. The cost is that update.json counts too —
+       about 3% of the total, since each release carries one alongside the .xpi.
+
+       Badgen was used here previously but has no "latest release" route: it read
+       "latest" as a tag name and rendered GitHub's 404 as the badge value. -->
+  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/downloads/forrtproject/flora-zotero/total?label=Downloads&style=flat-square&color=brightgreen" alt="Total Downloads"></a>
+  <a href="https://github.com/forrtproject/flora-zotero/releases/latest"><img src="https://img.shields.io/github/v/release/forrtproject/flora-zotero?label=Latest%20Release&style=flat-square&color=blue" alt="Latest Release"></a>
 
 </p>
 
